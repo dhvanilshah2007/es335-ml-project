@@ -1,0 +1,54 @@
+# Configuration for ES 335 Predictive Maintenance Project (C-MAPSS FD001)
+
+project:
+  name: "predictive-maintenance-cmapss"
+  course: "ES 335: Machine Learning (2026)"
+  dataset_subset: "FD001"
+  random_seed: 42
+
+paths:
+  raw_data_dir: "CMAPSSData"
+  train_file: "CMAPSSData/train_FD001.txt"
+  test_file: "CMAPSSData/test_FD001.txt"
+  rul_file: "CMAPSSData/RUL_FD001.txt"
+  processed_dir: "data/processed"
+  splits_dir: "data/splits"
+  results_metrics_dir: "results/metrics"
+  results_figures_dir: "results/figures"
+  web_data_dir: "docs/data"
+
+split:
+  total_training_engines: 100
+  dev_engines_count: 80
+  heldout_test_engines_count: 20
+  cv_folds: 5
+  group_col: "unit_id"
+  time_col: "cycle"
+
+framing:
+  # RUL cap: piece-wise linear target (degradation invisible early in life)
+  rul_cap: 125
+  rul_cap_sensitivity: [125, 150, null]
+  
+  # Alarm threshold w: Alarm = 1 if RUL <= w cycles
+  alarm_w: 30
+  alarm_w_sensitivity: [15, 30, 50]
+
+features:
+  # Trailing rolling window length k
+  window_k: 10
+  window_k_sensitivity: [10, 30]
+  # Summary features per retained sensor (computed per engine with strictly trailing windows)
+  summary_types: ["rolling_mean", "rolling_std", "slope"]
+  include_current_cycle_age: true
+  drop_constant_sensors: true
+  constant_std_threshold: 1.0e-4
+
+cost_simulation:
+  c_waste: 1.0
+  cost_ratios: [2, 5, 10, 20, 50]
+  default_c_fail: 10.0
+
+evaluation:
+  bootstrap_iterations: 1000
+  bootstrap_unit: "engine"

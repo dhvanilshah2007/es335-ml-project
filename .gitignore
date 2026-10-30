@@ -1,0 +1,47 @@
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# Operating System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# Project handoff / internal guidance documents
+Project Handoff Predictive Maintenance on C-MAPSS (ES 335).md
+
+# Intermediate data files (keep processed directory structure)
+data/processed/*.parquet
+data/processed/*.csv
+!data/processed/.gitkeep
+!data/splits/.gitkeep
+!results/metrics/.gitkeep
+!results/figures/.gitkeep
+!docs/data/.gitkeep
