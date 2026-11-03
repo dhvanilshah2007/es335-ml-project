@@ -1,0 +1,56 @@
+{
+  "dev_engines_count": 80,
+  "dev_rows_count": 16340,
+  "retained_sensors": [
+    "sensor_2",
+    "sensor_3",
+    "sensor_4",
+    "sensor_7",
+    "sensor_8",
+    "sensor_9",
+    "sensor_11",
+    "sensor_12",
+    "sensor_13",
+    "sensor_14",
+    "sensor_15",
+    "sensor_17",
+    "sensor_20",
+    "sensor_21"
+  ],
+  "dropped_channels": [
+    "op_setting_1",
+    "op_setting_2",
+    "op_setting_3",
+    "sensor_1",
+    "sensor_5",
+    "sensor_6",
+    "sensor_10",
+    "sensor_16",
+    "sensor_18",
+    "sensor_19"
+  ],
+  "pca_health_index": {
+    "explained_variance_ratio_pc1": 0.6409,
+    "explained_variance_ratio_pc2": 0.15,
+    "explained_variance_ratio_pc3": 0.0299,
+    "cumulative_top3_variance": 0.8207,
+    "corr_pc1_with_rul_capped": 0.8245,
+    "corr_pc1_with_rul_uncapped": 0.7382,
+    "pc1_sensor_loadings": {
+      "sensor_2": -0.273,
+      "sensor_3": -0.2597,
+      "sensor_4": -0.3015,
+      "sensor_7": 0.2981,
+      "sensor_8": -0.2822,
+      "sensor_9": -0.1044,
+      "sensor_11": -0.3095,
+      "sensor_12": 0.3046,
+      "sensor_13": -0.2818,
+      "sensor_14": -0.0656,
+      "sensor_15": -0.2874,
+      "sensor_17": -0.2688,
+      "sensor_20": 0.2826,
+      "sensor_21": 0.2841
+    }
+  }
+}
