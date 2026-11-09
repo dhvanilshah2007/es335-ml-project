@@ -46,8 +46,8 @@ features:
 
 cost_simulation:
   c_waste: 1.0
-  cost_ratios: [2, 5, 10, 20, 50]
-  default_c_fail: 10.0
+  cost_ratios: [20, 30, 50, 75, 100, 150, 200, 300]
+  default_c_fail: 100.0
 
 evaluation:
   bootstrap_iterations: 1000

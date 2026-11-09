@@ -1,0 +1,14 @@
+model_id,rung,model_name,feature_mode,window_k,rmse_all,mae_all,r2_all,nasa_asym_mean,rmse_rul_le_50,nasa_asym_rul_le_50,pct_late_overpredictions,cv_fold_rmse_std,optimal_rul_trigger_tau,policy_mean_cost_c100,policy_failure_rate_pct,policy_mean_wasted_cycles
+rung0_mean_rul,Rung 0,Mean RUL Baseline (Floor),age_only,10,41.705,37.01,-0.0,299.754,63.183,1161.885,42.59,0.005,8.0,100.0,100.0,0.0
+rung2_age_linear,Rung 2,Age-Only Linear Regression,age_only,10,27.401,20.475,0.5683,36.512,35.925,87.941,38.72,1.566,49.0,62.39,37.5,24.89
+rung3_instant_ridge,Rung 3,Instantaneous Sensors + Ridge (L2),instantaneous,10,19.546,14.899,0.7803,7.372,21.024,12.155,39.59,1.292,24.5,18.06,1.25,16.81
+rung3_instant_lasso,Rung 3,Instantaneous Sensors + Lasso (L1),instantaneous,10,19.661,15.045,0.7778,7.459,21.323,12.51,39.88,1.27,25.5,18.14,1.25,16.89
+rung4_trends_k10_ridge,Rung 4,Trailing Trends (k=10) + Ridge (L2),trailing_trends,10,18.858,14.388,0.7955,6.483,19.779,9.804,39.64,1.006,21.5,17.11,1.25,15.86
+rung4_trends_k10_lasso,Rung 4,Trailing Trends (k=10) + Lasso (L1),trailing_trends,10,18.959,14.544,0.7933,6.478,20.1,10.027,40.37,1.115,24.0,16.1,0.0,16.1
+rung4_trends_k30_ridge,Rung 4,Trailing Trends (k=30) + Ridge (L2),trailing_trends,30,15.298,11.715,0.8654,3.63,15.205,4.607,40.29,0.373,12.0,12.69,1.25,11.44
+rung4_trends_k30_lasso,Rung 4,Trailing Trends (k=30) + Lasso (L1),trailing_trends,30,15.429,11.899,0.8631,3.683,15.692,4.891,41.09,0.441,12.5,12.4,1.25,11.15
+rung5_trends_k10_rf,Rung 5,Trailing Trends (k=10) + Random Forest,trailing_trends,10,16.168,11.608,0.8497,6.089,15.79,9.768,38.42,1.791,8.0,6.42,0.0,6.42
+rung5_trends_k10_hgb,Rung 5,Trailing Trends (k=10) + HistGradientBoosting,trailing_trends,10,15.901,10.783,0.8546,5.298,14.054,6.149,37.11,1.543,8.0,8.01,0.0,8.01
+rung5_trends_k30_rf,Rung 5,Trailing Trends (k=30) + Random Forest,trailing_trends,30,12.43,9.001,0.9112,2.632,8.858,1.731,40.96,0.873,8.0,5.99,0.0,5.99
+rung5_trends_k30_hgb,Rung 5,Trailing Trends (k=30) + HistGradientBoosting,trailing_trends,30,12.221,8.348,0.9141,2.619,7.991,1.313,37.12,1.055,9.0,7.97,0.0,7.97
+ablation_combined_k10_hgb,Ablation,Combined Raw+Trends (k=10) + HistGradientBoosting,combined,10,15.867,10.765,0.8553,5.204,13.882,5.904,37.09,1.539,8.5,8.25,0.0,8.25

@@ -1,0 +1,11 @@
+model_id,rung,model_name,feature_mode,window_k,pr_auc,roc_auc,brier_score,precision_at_opt,recall_at_opt,f1_at_opt,optimal_threshold_p,oof_policy_mean_cost_c100,failure_rate_pct,premature_alarm_rate_pct,mean_wasted_cycles
+rung0_prior_clf,Rung 0,Never Alarm / Base-Rate Prior (Floor),age_only,10,0.1516,0.4995,0.1287,0.0,0.0,0.0,1.0,100.0,100.0,0.0,0.0
+rung1_fixed_schedule,Rung 1,Fixed Replacement Schedule (K*=179 cyc),cycle_timer,0,,,,,,,179.0,63.21,18.75,37.5,44.46
+rung2_age_logreg,Rung 2,Age-Only Logistic Regression,age_only,10,0.5123,0.8957,0.0949,0.4508,0.7875,0.5734,0.19,60.73,7.5,67.5,53.23
+rung3_instant_logreg,Rung 3,Instantaneous Sensors + Logistic Regression,instantaneous,10,0.9522,0.9894,0.0279,0.9741,0.6815,0.8019,0.85,24.32,0.0,21.25,24.32
+rung4_trends_k10_logreg,Rung 4,Trailing Trends (k=10) + Logistic Regression (L2),trailing_trends,10,0.9582,0.9912,0.0264,0.9742,0.7,0.8146,0.85,24.34,0.0,17.5,24.34
+rung4_trends_k30_logreg,Rung 4,Trailing Trends (k=30) + Logistic Regression (L2),trailing_trends,30,0.9863,0.9974,0.0144,0.9815,0.8141,0.89,0.85,25.56,0.0,16.25,25.56
+rung5_trends_k10_rf_clf,Rung 5,Trailing Trends (k=10) + Random Forest Classifier,trailing_trends,10,0.9479,0.9886,0.0296,0.9828,0.621,0.7611,0.85,18.71,0.0,7.5,18.71
+rung5_trends_k30_rf_clf,Rung 5,Trailing Trends (k=30) + Random Forest Classifier,trailing_trends,30,0.9777,0.9957,0.0194,0.992,0.646,0.7824,0.85,19.79,0.0,6.25,19.79
+rung5_trends_k10_hgb_clf,Rung 5,Trailing Trends (k=10) + HistGradientBoosting Classifier,trailing_trends,10,0.9537,0.99,0.0278,0.9677,0.7008,0.8129,0.85,22.54,0.0,17.5,22.54
+rung5_trends_k30_hgb_clf,Rung 5,Trailing Trends (k=30) + HistGradientBoosting Classifier,trailing_trends,30,0.9779,0.9959,0.0181,0.9618,0.8121,0.8806,0.85,26.77,0.0,27.5,26.77
