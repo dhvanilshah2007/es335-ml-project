@@ -51,6 +51,8 @@ def _read_cmapss_table(file_path: Path) -> pd.DataFrame:
     df.columns = ALL_RAW_COLS
     df["unit_id"] = df["unit_id"].astype(int)
     df["cycle"] = df["cycle"].astype(int)
+    float_cols = [c for c in ALL_RAW_COLS if c not in INDEX_COLS]
+    df[float_cols] = df[float_cols].astype(np.float64)
     df = df.sort_values(INDEX_COLS).reset_index(drop=True)
     return df
 

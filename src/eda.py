@@ -6,7 +6,7 @@ Phase 2 of the ES 335 Predictive Maintenance Project:
 - Identifies constant and near-constant channels vs. the 14 informative degradation sensors.
 - Quantifies the fixed-interval replacement trade-off (in-service failure rate vs. wasted life).
 - Aligns sensor trajectories by forward cycle (`cycle`) vs. reverse cycles-to-failure (`-rul_uncapped`).
-- Constructs an unsupervised PCA Health Index (Syllabus Topic 8) on the 14 retained sensors.
+- Constructs an unsupervised PCA Health Index on the 14 retained sensors.
 - Generates publication-quality figures in `results/figures/` and tabular summaries in `results/metrics/`.
 """
 
@@ -483,7 +483,7 @@ def plot_correlation_and_pca_health_index(
     var_pct = pca_info["explained_variance_ratio_pc1"] * 100.0
     corr_rul = pca_info["corr_pc1_with_rul_capped"]
     ax_pca.set_title(
-        f"B. Unsupervised 1D PCA Health Index (Syllabus Topic 8)\n"
+        f"B. Unsupervised 1D PCA Health Index\n"
         f"[PC1 Explains {var_pct:.1f}% Sensor Variance | r = {corr_rul:+.2f} with Capped RUL]"
     )
     ax_pca.set_xlabel("Cycles Relative to Failure ($-\\mathrm{RUL}$, Failure = 0)")

@@ -86,9 +86,9 @@ def main() -> int:
             f"({r['pct_total_fleet_life_wasted']:4.1f}% of fleet life)"
         )
 
-    # 4. Unsupervised PCA Health Index (Syllabus Topic 8)
+    # 4. Unsupervised PCA Health Index
     pca_df, pca_info = fit_pca_health_index(dev_df, retained_sensors)
-    print("\n4. Unsupervised 1D PCA Composite Health Index (Syllabus Topic 8):")
+    print("\n4. Unsupervised 1D PCA Composite Health Index:")
     print(
         f"   - Variance explained: PC1 = {pca_info['explained_variance_ratio_pc1']*100:.2f}%, "
         f"PC2 = {pca_info['explained_variance_ratio_pc2']*100:.2f}%, "
