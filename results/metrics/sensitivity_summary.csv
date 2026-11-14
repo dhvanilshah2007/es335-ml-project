@@ -1,0 +1,23 @@
+sweep_dimension,setting_label,model_id,model_name,task_type,window_k,rul_cap,alarm_w,positive_class_pct,rmse_all,mae_all,r2_all,nasa_asym_mean,pr_auc,brier_score,optimal_threshold,oof_policy_cost_c100,failure_rate_pct,mean_wasted_cycles
+alarm_horizon_w,w=15 cycles,rung4_trends_logreg,Trailing Trends (k=30) + Logistic Regression (L2),classification,30,125,15,7.83,,,,,0.987,0.0074,0.95,9.69,0.0,9.69
+alarm_horizon_w,w=15 cycles,rung5_trends_hgb_clf,Trailing Trends (k=30) + HistGradientBoosting Classifier,classification,30,125,15,7.83,,,,,0.9737,0.0103,0.92,10.01,0.0,10.01
+alarm_horizon_w,w=30 cycles,rung4_trends_logreg,Trailing Trends (k=30) + Logistic Regression (L2),classification,30,125,30,15.18,,,,,0.9863,0.0144,0.99,17.74,0.0,17.74
+alarm_horizon_w,w=30 cycles,rung5_trends_hgb_clf,Trailing Trends (k=30) + HistGradientBoosting Classifier,classification,30,125,30,15.18,,,,,0.9779,0.0181,0.99,15.35,3.75,11.6
+alarm_horizon_w,w=50 cycles,rung4_trends_logreg,Trailing Trends (k=30) + Logistic Regression (L2),classification,30,125,50,24.97,,,,,0.9852,0.0249,0.99,32.73,0.0,32.73
+alarm_horizon_w,w=50 cycles,rung5_trends_hgb_clf,Trailing Trends (k=30) + HistGradientBoosting Classifier,classification,30,125,50,24.97,,,,,0.9819,0.0269,0.99,23.79,0.0,23.79
+rul_cap,cap=125,rung4_trends_ridge,Trailing Trends (k=30) + Ridge (L2),regression,30,125,30,15.18,15.298,11.715,0.8654,3.63,,,12.0,12.69,1.25,11.44
+rul_cap,cap=125,rung5_trends_hgb,Trailing Trends (k=30) + HistGradientBoosting,regression,30,125,30,15.18,12.221,8.348,0.9141,2.619,,,9.0,7.97,0.0,7.97
+rul_cap,cap=150,rung4_trends_ridge,Trailing Trends (k=30) + Ridge (L2),regression,30,150,30,15.18,20.5,16.263,0.8314,8.508,,,14.0,14.31,0.0,14.31
+rul_cap,cap=150,rung5_trends_hgb,Trailing Trends (k=30) + HistGradientBoosting,regression,30,150,30,15.18,17.068,12.19,0.8831,6.473,,,10.0,8.93,0.0,8.93
+rul_cap,Uncapped,rung4_trends_ridge,Trailing Trends (k=30) + Ridge (L2),regression,30,Uncapped,30,15.18,37.446,27.476,0.697,962.357,,,7.0,15.66,1.25,14.41
+rul_cap,Uncapped,rung5_trends_hgb,Trailing Trends (k=30) + HistGradientBoosting,regression,30,Uncapped,30,15.18,36.114,23.719,0.7182,2106.35,,,11.0,10.2,0.0,10.2
+window_length_k,k=10 cycles,rung4_trends_ridge,Trailing Trends (k=10) + Ridge (L2),regression,10,125,30,15.18,18.858,14.388,0.7955,6.483,,,22.0,17.54,1.25,16.29
+window_length_k,k=10 cycles,rung5_trends_hgb,Trailing Trends (k=10) + HistGradientBoosting,regression,10,125,30,15.18,15.901,10.783,0.8546,5.298,,,8.0,8.01,0.0,8.01
+window_length_k,k=10 cycles,rung4_trends_logreg,Trailing Trends (k=10) + Logistic Regression (L2),classification,10,125,30,15.18,,,,,0.9582,0.0264,0.99,12.99,0.0,12.99
+window_length_k,k=10 cycles,rung5_trends_hgb_clf,Trailing Trends (k=10) + HistGradientBoosting Classifier,classification,10,125,30,15.18,,,,,0.9537,0.0278,0.99,12.56,2.5,10.06
+window_length_k,k=30 cycles,rung4_trends_ridge,Trailing Trends (k=30) + Ridge (L2),regression,30,125,30,15.18,15.298,11.715,0.8654,3.63,,,12.0,12.69,1.25,11.44
+window_length_k,k=30 cycles,rung5_trends_hgb,Trailing Trends (k=30) + HistGradientBoosting,regression,30,125,30,15.18,12.221,8.348,0.9141,2.619,,,9.0,7.97,0.0,7.97
+window_length_k,k=30 cycles,rung4_trends_logreg,Trailing Trends (k=30) + Logistic Regression (L2),classification,30,125,30,15.18,,,,,0.9863,0.0144,0.99,17.74,0.0,17.74
+window_length_k,k=30 cycles,rung5_trends_hgb_clf,Trailing Trends (k=30) + HistGradientBoosting Classifier,classification,30,125,30,15.18,,,,,0.9779,0.0181,0.99,15.35,3.75,11.6
+scaler_leakage_check,Fold-Isolated Scaler (Pipeline),rung4_trends_ridge,Trailing Trends (k=30) + Ridge (L2),regression,30,125,30,15.18,15.298,11.715,0.8654,3.63,,,12.0,12.69,1.25,11.44
+scaler_leakage_check,Global Scaler (All 80 Dev),rung4_trends_ridge,Trailing Trends (k=30) + Ridge (L2),regression,30,125,30,15.18,15.301,11.717,0.8654,3.632,,,12.0,12.69,1.25,11.44

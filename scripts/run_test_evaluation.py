@@ -15,6 +15,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from src.cost_simulation import (
+    audit_test_errors_and_case_studies,
     evaluate_locked_classification_ladder_on_test,
     evaluate_locked_regression_ladder_on_test,
     evaluate_official_fd001_benchmark,
@@ -22,6 +23,7 @@ from src.cost_simulation import (
     run_cost_ratio_sweep,
     run_engine_bootstrap_ci,
     run_row_vs_engine_leakage_experiment,
+    run_sensitivity_analysis,
 )
 from src.data import (
     load_config,
@@ -35,6 +37,7 @@ from src.models import (
 )
 from src.plotting import (
     plot_cost_curve_vs_fixed_schedule,
+    plot_error_case_studies,
     plot_leakage_comparison,
 )
 
@@ -59,7 +62,7 @@ def main() -> int:
     test_df = load_heldout_test_data(rul_cap=rul_cap, alarm_w=alarm_w)
     official_test_df = load_official_benchmark_test_data(rul_cap=rul_cap, alarm_w=alarm_w)
     print(
-        f"[1/6] Loaded 80 Dev ({len(dev_df):,} rows), 20 Held-Out Test ({len(test_df):,} rows), "
+        f"[1/8] Loaded 80 Dev ({len(dev_df):,} rows), 20 Held-Out Test ({len(test_df):,} rows), "
         f"and 100 Official Truncated Test engines ({len(official_test_df):,} rows)."
     )
 
@@ -72,7 +75,7 @@ def main() -> int:
         c_fail=default_c_fail, c_waste=c_waste, alarm_w=alarm_w,
     )
 
-    print("\n[2/6] Evaluating locked Regression & Classification Ladders on 20 Held-Out Test engines...")
+    print("\n[2/8] Evaluating locked Regression & Classification Ladders on 20 Held-Out Test engines...")
     test_reg_df, test_preds, fitted_reg_pipes = evaluate_locked_regression_ladder_on_test(
         dev_df=dev_df, test_df=test_df, cv_reg_df=cv_reg_df,
         window_k=window_k, rul_cap=rul_cap, c_fail=default_c_fail, c_waste=c_waste, alarm_w=alarm_w,
@@ -96,7 +99,7 @@ def main() -> int:
         ].to_string(index=False)
     )
 
-    print("\n[3/6] Running Cost Ratio Sweep & Break-Even Analysis...")
+    print("\n[3/8] Running Cost Ratio Sweep & Break-Even Analysis...")
     sweep_df, breakeven_info = run_cost_ratio_sweep(
         dev_df=dev_df, test_df=test_df, oof_preds=oof_preds, oof_probs=oof_probs,
         test_preds=test_preds, test_probs=test_probs, cost_ratios=cost_ratios,
@@ -111,7 +114,7 @@ def main() -> int:
     for k, v in breakeven_info.items():
         print(f"  - {k}: {v}:1")
 
-    print(f"\n[4/6] Running {n_boot:,} Engine-Level Bootstrap Resamples...")
+    print(f"\n[4/8] Running {n_boot:,} Engine-Level Bootstrap Resamples...")
     locked_params = {
         "fixed_k_dev": float(test_clf_df.loc[test_clf_df["model_id"] == "rung1_fixed_schedule", "locked_dev_threshold_p"].iloc[0]),
         "champ_clf_p_dev": float(test_clf_df.loc[test_clf_df["model_id"] == "rung4_trends_logreg", "locked_dev_threshold_p"].iloc[0]),
@@ -126,7 +129,7 @@ def main() -> int:
         boot_df[["model_or_comparison", "metric_name", "test_point_estimate", "ci95_lower", "ci95_upper", "prob_positive_savings"]].to_string(index=False)
     )
 
-    print("\n[5/6] Evaluating Secondary Sanity Check on 100 Official `test_FD001.txt` Engines...")
+    print("\n[5/8] Evaluating Secondary Sanity Check on 100 Official `test_FD001.txt` Engines...")
     official_bench_df, _ = evaluate_official_fd001_benchmark(
         fitted_reg_pipes=fitted_reg_pipes, official_test_df=official_test_df, window_k=window_k, rul_cap=rul_cap,
     )
@@ -136,7 +139,7 @@ def main() -> int:
         ].to_string(index=False)
     )
 
-    print("\n[6/6] Running Row-Split vs. Engine-Split Leakage Experiment...")
+    print("\n[6/8] Running Row-Split vs. Engine-Split Leakage Experiment...")
     leakage_df, scatter_payload = run_row_vs_engine_leakage_experiment(
         dev_df=dev_df, test_df=test_df, window_k=window_k, rul_cap=rul_cap, seed=seed,
     )
@@ -145,6 +148,40 @@ def main() -> int:
             ["model_label", "proper_groupkfold_cv_rmse", "leaky_random_kfold_cv_rmse", "proper_heldout_engines_test_rmse", "leaky_random_row_split_test_rmse", "artificial_error_reduction_pct"]
         ].to_string(index=False)
     )
+
+    print("\n[7/8] Running 5-Fold Dev Sensitivity Analysis (w, RUL cap, window k, scaler isolation)...")
+    sensitivity_df = run_sensitivity_analysis(
+        dev_df=dev_df,
+        rul_caps=cfg["framing"]["rul_cap_sensitivity"],
+        alarm_ws=cfg["framing"]["alarm_w_sensitivity"],
+        window_ks=cfg["features"]["window_k_sensitivity"],
+        cv_folds=cv_folds,
+        c_fail=default_c_fail,
+        c_waste=c_waste,
+    )
+    print(
+        sensitivity_df[
+            ["sweep_dimension", "setting_label", "model_name", "rmse_all", "pr_auc", "oof_policy_cost_c100"]
+        ].to_string(index=False)
+    )
+
+    print("\n[8/8] Auditing Held-Out Test Engine Errors & Representative Case Studies...")
+    audit_df, case_studies_payload = audit_test_errors_and_case_studies(
+        test_df=test_df,
+        test_preds=test_preds,
+        test_probs=test_probs,
+        locked_params=locked_params,
+        c_fail=default_c_fail,
+        c_waste=c_waste,
+        alarm_w=alarm_w,
+    )
+    for role_key in ("shortest_lived", "longest_lived", "worst_asymmetric_error"):
+        cs = case_studies_payload["case_studies"][role_key]
+        print(
+            f"  * {cs['label']} (#{cs['unit_id']}, T_fail={cs['max_cycle']}c): "
+            f"HistGBR RMSE={cs['hgb_rmse']:.2f}, Asym={cs['hgb_nasa_asym_mean']:.2f}, "
+            f"Fixed={cs['fixed_cost']:.0f}, LogReg={cs['logreg_cost']:.0f}, HistGBR={cs['hgb_cost']:.0f}"
+        )
 
     metrics_dir = REPO_ROOT / cfg["paths"]["results_metrics_dir"]
     processed_dir = REPO_ROOT / cfg["paths"]["processed_dir"]
@@ -156,6 +193,7 @@ def main() -> int:
     boot_df.to_csv(metrics_dir / "test_final_metrics.csv", index=False)
     sweep_df.to_csv(metrics_dir / "cost_policy_comparison.csv", index=False)
     leakage_df.to_csv(metrics_dir / "leakage_experiment_results.csv", index=False)
+    sensitivity_df.to_csv(metrics_dir / "sensitivity_summary.csv", index=False)
 
     per_engine_fixed = extract_per_engine_policy_outcomes(
         test_df, None, threshold=locked_params["fixed_k_dev"], c_fail=default_c_fail, c_waste=c_waste, policy_type="fixed"
@@ -173,6 +211,15 @@ def main() -> int:
         c_fail=default_c_fail, c_waste=c_waste, policy_type="rul",
     )
 
+    limitations = [
+        "Simulated NASA C-MAPSS benchmark rather than logged fleet telemetry; zero missing values or sensor dropouts.",
+        "Single operating condition (sea level) and single degradation fault mode (HPC wear); does not test regime transfer.",
+        "Small held-out test fleet (20 engines), yielding wide bootstrap confidence intervals around failure rates and savings.",
+        "No censoring or unrecorded maintenance interventions in training run-to-failure trajectories.",
+        "Maintenance failure-to-waste ratios (10:1 to 300:1) are illustrative policy assumptions rather than true shop costs.",
+        "Sensor weights and permutation importance quantify predictive association, not physical root-cause fault causality.",
+    ]
+
     test_summary = {
         "module": "Decision-Centric Cost Policy Simulation & Held-Out Test Evaluation",
         "primary_window_k": window_k,
@@ -186,6 +233,10 @@ def main() -> int:
         "cost_ratio_sweep": sweep_df.to_dict(orient="records"),
         "leakage_experiment": leakage_df.to_dict(orient="records"),
         "official_fd001_100_engines_benchmark": official_bench_df.to_dict(orient="records"),
+        "sensitivity_summary": sensitivity_df.to_dict(orient="records"),
+        "per_engine_error_audit": audit_df.to_dict(orient="records"),
+        "error_case_studies": case_studies_payload,
+        "limitations": limitations,
         "per_engine_test_outcomes_c100": {
             "fixed_schedule": per_engine_fixed.to_dict(orient="records"),
             "champion_classifier_logreg": per_engine_clf.to_dict(orient="records"),
@@ -204,14 +255,20 @@ def main() -> int:
         leakage_df=leakage_df, scatter_payload=scatter_payload,
         out_path=fig_dir / "leakage_comparison_scatter.png",
     )
+    plot_error_case_studies(
+        case_studies_payload=case_studies_payload,
+        out_path=fig_dir / "error_case_studies.png",
+    )
 
     print("\nSaved Test Evaluation Outputs:")
     print(f"  - {(metrics_dir / 'test_final_metrics.csv').relative_to(REPO_ROOT)}")
     print(f"  - {(metrics_dir / 'cost_policy_comparison.csv').relative_to(REPO_ROOT)}")
     print(f"  - {(metrics_dir / 'leakage_experiment_results.csv').relative_to(REPO_ROOT)}")
+    print(f"  - {(metrics_dir / 'sensitivity_summary.csv').relative_to(REPO_ROOT)}")
     print(f"  - {(processed_dir / 'test_evaluation_summary.json').relative_to(REPO_ROOT)}")
     print(f"  - {(fig_dir / 'cost_curve_vs_fixed_schedule.png').relative_to(REPO_ROOT)}")
     print(f"  - {(fig_dir / 'leakage_comparison_scatter.png').relative_to(REPO_ROOT)}")
+    print(f"  - {(fig_dir / 'error_case_studies.png').relative_to(REPO_ROOT)}")
     print("=" * 84)
     return 0
 

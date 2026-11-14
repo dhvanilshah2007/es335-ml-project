@@ -60,7 +60,7 @@ This project studies whether multivariate sensor telemetry from turbofan engines
 │   └── 02_modeling_and_evaluation.ipynb  # Baseline ladder, cost policy & held-out test analysis
 ├── results/
 │   ├── metrics/              # Core CSV tables (EDA screening, CV ladders, test CIs, cost sweep, leakage)
-│   └── figures/              # 8 clean, focused PNG plots
+│   └── figures/              # 9 clean, focused PNG plots
 └── docs/                     # Static GitHub Pages site
 ```
 

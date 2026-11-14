@@ -1,6 +1,6 @@
 """Centralized, clean matplotlib visualizations for C-MAPSS FD001 predictive maintenance.
 
-Generates 8 focused, 1- to 2-panel figures in `results/figures/` without cluttering core
+Generates 9 focused, 1- to 4-panel figures in `results/figures/` without cluttering core
 modeling and simulation modules.
 """
 
@@ -64,6 +64,7 @@ def plot_lifetime_distribution(dev_df: pd.DataFrame, out_path: Path) -> None:
     plt.close(fig)
 
 
+
 def plot_aligned_degradation_trajectories(dev_df: pd.DataFrame, out_path: Path) -> None:
     """Compare forward-time trajectories vs. failure-aligned trajectories for 3 key sensors."""
     key_sensors = [
@@ -115,6 +116,7 @@ def plot_aligned_degradation_trajectories(dev_df: pd.DataFrame, out_path: Path) 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, bbox_inches="tight")
     plt.close(fig)
+
 
 
 def plot_correlation_and_pca_health_index(
@@ -177,6 +179,7 @@ def plot_correlation_and_pca_health_index(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, bbox_inches="tight")
     plt.close(fig)
+
 
 
 def plot_trailing_feature_diagnostics(
@@ -242,6 +245,7 @@ def plot_trailing_feature_diagnostics(
     plt.close(fig)
 
 
+
 def plot_cv_baseline_ladder(
     reg_df: pd.DataFrame,
     clf_df: pd.DataFrame,
@@ -302,6 +306,7 @@ def plot_cv_baseline_ladder(
     plt.close(fig)
 
 
+
 def plot_cv_pr_and_calibration(
     dev_df: pd.DataFrame,
     oof_probs: dict[str, np.ndarray],
@@ -357,6 +362,7 @@ def plot_cv_pr_and_calibration(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, bbox_inches="tight")
     plt.close(fig)
+
 
 
 def plot_cost_curve_vs_fixed_schedule(
@@ -415,6 +421,7 @@ def plot_cost_curve_vs_fixed_schedule(
     plt.close(fig)
 
 
+
 def plot_leakage_comparison(
     leakage_df: pd.DataFrame,
     scatter_payload: dict[str, Any],
@@ -467,6 +474,136 @@ def plot_leakage_comparison(
     ax2.set_ylabel("Capped RUL (Cycles)")
     ax2.grid(True, alpha=0.25)
     ax2.legend(loc="lower left", frameon=True, fontsize=8.0)
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_single_engine_case_study(
+    ax: plt.Axes,
+    case: dict[str, Any],
+    panel_title: str,
+    tau_dev: float,
+    shade_overpred: bool = False,
+    legend_loc: str = "lower left",
+) -> None:
+    """Plot true vs. predicted RUL and policy trigger markers for one held-out test engine."""
+    cycles = np.asarray(case["cycles"], dtype=float)
+    true_rul = np.asarray(case["true_rul"], dtype=float)
+    pred_hgb = np.asarray(case["pred_hgb"], dtype=float)
+    pred_ridge = np.asarray(case["pred_ridge"], dtype=float)
+    max_cyc = int(case["max_cycle"])
+
+    ax.plot(cycles, true_rul, color="#111827", linewidth=2.1, label="True Capped RUL")
+    ax.plot(cycles, pred_hgb, color="#16a34a", linewidth=1.8, alpha=0.95, label=f"HistGBR (RMSE={case['hgb_rmse']:.1f})")
+    ax.plot(cycles, pred_ridge, color="#2563eb", linewidth=1.4, linestyle="--", alpha=0.85, label=f"Ridge (RMSE={case['ridge_rmse']:.1f})")
+
+    if shade_overpred:
+        ax.fill_between(
+            cycles,
+            true_rul,
+            pred_hgb,
+            where=(pred_hgb > true_rul),
+            interpolate=True,
+            color="#dc2626",
+            alpha=0.22,
+            label="Overprediction (Late Penalty)",
+        )
+
+    ax.axhline(tau_dev, color="#6b7280", linestyle=":", linewidth=1.1, alpha=0.8)
+
+    k_dev = int(case["fixed_k_dev"])
+    if case["fixed_failed"]:
+        ax.axvline(max_cyc, color="#d97706", linestyle="--", linewidth=1.5, label=f"Fixed K*={k_dev} -> FAIL @t={max_cyc}")
+    else:
+        ax.axvline(k_dev, color="#d97706", linestyle="--", linewidth=1.7, label=f"Fixed K*={k_dev} (Waste={int(case['fixed_wasted'])}c)")
+
+    if case["hgb_alarm_cycle"] is not None:
+        h_cyc = int(case["hgb_alarm_cycle"])
+        h_lbl = f"HistGBR Alarm @t={h_cyc} (Waste={int(case['hgb_wasted'])}c)"
+        ax.axvline(h_cyc, color="#16a34a", linestyle="-.", linewidth=1.5, label=h_lbl)
+    else:
+        ax.plot([], [], color="#16a34a", linestyle="-.", linewidth=1.5, label=f"HistGBR Trigger -> FAIL @t={max_cyc}")
+
+    if case["logreg_alarm_cycle"] is not None:
+        l_cyc = int(case["logreg_alarm_cycle"])
+        ax.axvline(l_cyc, color="#9333ea", linestyle=":", linewidth=1.8, label=f"LogReg Alarm @t={l_cyc} (Waste={int(case['logreg_wasted'])}c)")
+
+    ax.set_title(panel_title)
+    ax.set_xlabel("Operating Cycle ($t$)")
+    ax.set_ylabel("Capped RUL (Cycles)")
+    ax.set_ylim(-5, 136)
+    ax.set_xlim(0, max_cyc + 8)
+    ax.grid(True, alpha=0.25)
+    ax.legend(loc=legend_loc, frameon=True, fontsize=7.6)
+
+
+def plot_error_case_studies(
+    case_studies_payload: dict[str, Any],
+    out_path: Path,
+) -> None:
+    """Plot 2x2 held-out error audit: 3 representative engine trajectories and residual-vs-RUL profile."""
+    cases = case_studies_payload["case_studies"]
+    tau_dev = float(case_studies_payload["tau_dev"])
+    res_curve = case_studies_payload["residual_by_true_rul"]
+
+    fig, axes = plt.subplots(2, 2, figsize=(13.8, 9.0), layout="constrained")
+
+    c_short = cases["shortest_lived"]
+    _plot_single_engine_case_study(
+        axes[0, 0],
+        c_short,
+        panel_title=f"A. Shortest-Lived Test Engine (#{c_short['unit_id']}, T_fail={c_short['max_cycle']} cyc)",
+        tau_dev=tau_dev,
+        shade_overpred=False,
+        legend_loc="lower left",
+    )
+
+    c_long = cases["longest_lived"]
+    _plot_single_engine_case_study(
+        axes[0, 1],
+        c_long,
+        panel_title=f"B. Longest-Lived Test Engine (#{c_long['unit_id']}, T_fail={c_long['max_cycle']} cyc)",
+        tau_dev=tau_dev,
+        shade_overpred=False,
+        legend_loc="lower left",
+    )
+
+    c_worst = cases["worst_asymmetric_error"]
+    _plot_single_engine_case_study(
+        axes[1, 0],
+        c_worst,
+        panel_title=(
+            f"C. Worst NASA Asym Engine (#{c_worst['unit_id']}, T_fail={c_worst['max_cycle']}c, "
+            f"Asym={c_worst['hgb_nasa_asym_mean']:.2f}, MaxOver=+{c_worst['hgb_max_overpred']:.1f})"
+        ),
+        tau_dev=tau_dev,
+        shade_overpred=True,
+        legend_loc="lower left",
+    )
+
+    # Panel D: Prediction Residual vs. True RUL Across All 20 Held-Out Test Engines
+    ax4 = axes[1, 1]
+    r_x = np.asarray(res_curve["rul_centers"], dtype=float)
+    hgb_bias = np.asarray(res_curve["hgb_mean_bias"], dtype=float)
+    hgb_std = np.asarray(res_curve["hgb_std_err"], dtype=float)
+    ridge_bias = np.asarray(res_curve["ridge_mean_bias"], dtype=float)
+
+    ax4.axhline(0.0, color="#111827", linestyle="--", linewidth=1.3, label="Zero Prediction Error")
+    ax4.fill_between(r_x, hgb_bias - hgb_std, hgb_bias + hgb_std, color="#16a34a", alpha=0.18, label="HistGBR Mean ± 1 SD")
+    ax4.plot(r_x, hgb_bias, color="#16a34a", linewidth=2.2, label="HistGBR Mean Residual (ŷ − y)")
+    ax4.plot(r_x, ridge_bias, color="#2563eb", linewidth=1.8, linestyle="--", label="Ridge Mean Residual (ŷ − y)")
+
+    ax4.set_title("D. Prediction Residual vs. True RUL (All 20 Held-Out Engines)")
+    ax4.set_xlabel("True Capped RUL (Cycles Remaining -> Failure at 0)")
+    ax4.set_ylabel("Mean Error ŷ − y (Cycles)")
+    ax4.set_xlim(127, -2)
+    ax4.grid(True, alpha=0.25)
+    ax4.text(122, 16.5, "> 0: Late Over-Prediction (Risky)", fontsize=8.0, color="#b91c1c", fontweight="bold")
+    ax4.text(122, -23.0, "< 0: Early Under-Prediction (Safe)", fontsize=8.0, color="#1d4ed8", fontweight="bold")
+    ax4.set_ylim(-27, 22)
+    ax4.legend(loc="upper right", frameon=True, fontsize=8.0)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, bbox_inches="tight")

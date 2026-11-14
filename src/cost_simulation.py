@@ -9,6 +9,7 @@ Core responsibilities:
   and paired cost savings.
 - Evaluates the secondary sanity-check benchmark on the 100 official `test_FD001.txt` engines.
 - Demonstrates and quantifies row-level split leakage vs. engine-grouped splitting on ladder models.
+- Runs 5-fold GroupKFold sensitivity analysis and held-out engine error case-study auditing.
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from sklearn.model_selection import GroupKFold, KFold, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
+from src.data import add_targets
 from src.features import build_preprocessing_pipeline
 from src.models import (
     compute_regression_metrics,
@@ -805,3 +807,425 @@ def run_row_vs_engine_leakage_experiment(
         ).tolist(),
     }
     return pd.DataFrame(records), scatter_payload
+
+
+def _optimize_rul_trigger_grid(
+    df: pd.DataFrame,
+    scores: np.ndarray,
+    c_fail: float,
+    c_waste: float,
+    alarm_w: int,
+) -> tuple[float, dict[str, float]]:
+    """Find cost-optimal RUL trigger tau* over [5, 60] cycles on development data."""
+    grid = np.arange(5.0, 60.5, 1.0)
+    best_tau = float(grid[0])
+    best_stats: dict[str, float] | None = None
+    for th in grid:
+        stats = simulate_model_alarm_policy(
+            df,
+            scores=scores,
+            threshold=float(th),
+            c_fail=c_fail,
+            c_waste=c_waste,
+            score_is_rul=True,
+            alarm_w=alarm_w,
+        )
+        if best_stats is None or stats["mean_cost_per_engine"] < best_stats["mean_cost_per_engine"]:
+            best_tau = float(th)
+            best_stats = stats
+    assert best_stats is not None
+    return round(best_tau, 2), best_stats
+
+
+def _eval_sensitivity_cv_model(
+    df: pd.DataFrame,
+    spec: dict[str, Any],
+    task_type: str,
+    sweep_dimension: str,
+    setting_label: str,
+    rul_cap: int | None,
+    alarm_w: int,
+    cv_folds: int = 5,
+    c_fail: float = 100.0,
+    c_waste: float = 1.0,
+    global_scale_leak: bool = False,
+) -> dict[str, Any]:
+    """Run 5-fold GroupKFold CV for a single regression or classification sensitivity configuration."""
+    gkf = GroupKFold(n_splits=cv_folds)
+    groups = df["unit_id"]
+    pos_pct = round(float(df["alarm"].mean() * 100.0), 2)
+    cap_label = str(rul_cap) if rul_cap is not None else "Uncapped"
+
+    oof_scores = np.zeros(len(df), dtype=np.float64)
+    if global_scale_leak:
+        prep_leak = build_preprocessing_pipeline(
+            window_k=spec["window_k"],
+            feature_mode=spec["feature_mode"],
+            scale=True,
+        )
+        X_global = prep_leak.fit_transform(df)
+        target_col = "rul" if task_type == "regression" else "alarm"
+        for tr_idx, val_idx in gkf.split(X_global, groups=groups):
+            est = clone(spec["estimator"]).fit(X_global.iloc[tr_idx], df[target_col].iloc[tr_idx])
+            if task_type == "regression":
+                raw = est.predict(X_global.iloc[val_idx])
+                oof_scores[val_idx] = (
+                    np.clip(raw, 0.0, float(rul_cap)) if rul_cap is not None else np.maximum(0.0, raw)
+                )
+            else:
+                oof_scores[val_idx] = est.predict_proba(X_global.iloc[val_idx])[:, 1]
+    else:
+        target_col = "rul" if task_type == "regression" else "alarm"
+        for tr_idx, val_idx in gkf.split(df, groups=groups):
+            tr_df = df.iloc[tr_idx]
+            val_df = df.iloc[val_idx]
+            prep = build_preprocessing_pipeline(
+                window_k=spec["window_k"],
+                feature_mode=spec["feature_mode"],
+                scale=spec["scale"],
+            )
+            full_pipe = Pipeline([("prep", prep), ("model", clone(spec["estimator"]))])
+            full_pipe.fit(tr_df, tr_df[target_col])
+            if task_type == "regression":
+                raw = full_pipe.predict(val_df)
+                oof_scores[val_idx] = (
+                    np.clip(raw, 0.0, float(rul_cap)) if rul_cap is not None else np.maximum(0.0, raw)
+                )
+            else:
+                oof_scores[val_idx] = full_pipe.predict_proba(val_df)[:, 1]
+
+    row: dict[str, Any] = {
+        "sweep_dimension": sweep_dimension,
+        "setting_label": setting_label,
+        "model_id": spec["model_id"],
+        "model_name": spec["name"],
+        "task_type": task_type,
+        "window_k": int(spec["window_k"]),
+        "rul_cap": cap_label,
+        "alarm_w": int(alarm_w),
+        "positive_class_pct": pos_pct,
+    }
+
+    if task_type == "regression":
+        reg_m = compute_regression_metrics(df, oof_scores, rul_cap=rul_cap)
+        opt_tau, pol_stats = _optimize_rul_trigger_grid(
+            df, oof_scores, c_fail=c_fail, c_waste=c_waste, alarm_w=alarm_w
+        )
+        row.update(
+            {
+                "rmse_all": reg_m["rmse_all"],
+                "mae_all": reg_m["mae_all"],
+                "r2_all": reg_m["r2_all"],
+                "nasa_asym_mean": reg_m["nasa_asym_mean"],
+                "pr_auc": np.nan,
+                "brier_score": np.nan,
+                "optimal_threshold": opt_tau,
+                "oof_policy_cost_c100": pol_stats["mean_cost_per_engine"],
+                "failure_rate_pct": pol_stats["failure_rate_pct"],
+                "mean_wasted_cycles": pol_stats["mean_wasted_cycles"],
+            }
+        )
+    else:
+        y_true = df["alarm"].to_numpy(dtype=int)
+        pr_auc = float(average_precision_score(y_true, oof_scores))
+        brier = float(brier_score_loss(y_true, oof_scores))
+        opt_p, pol_stats = optimize_alarm_threshold(
+            df, scores=oof_scores, c_fail=c_fail, c_waste=c_waste, score_is_rul=False, alarm_w=alarm_w
+        )
+        row.update(
+            {
+                "rmse_all": np.nan,
+                "mae_all": np.nan,
+                "r2_all": np.nan,
+                "nasa_asym_mean": np.nan,
+                "pr_auc": round(pr_auc, 4),
+                "brier_score": round(brier, 4),
+                "optimal_threshold": opt_p,
+                "oof_policy_cost_c100": pol_stats["mean_cost_per_engine"],
+                "failure_rate_pct": pol_stats["failure_rate_pct"],
+                "mean_wasted_cycles": pol_stats["mean_wasted_cycles"],
+            }
+        )
+    return row
+
+
+def run_sensitivity_analysis(
+    dev_df: pd.DataFrame,
+    rul_caps: list[int | None] | None = None,
+    alarm_ws: list[int] | None = None,
+    window_ks: list[int] | None = None,
+    cv_folds: int = 5,
+    c_fail: float = 100.0,
+    c_waste: float = 1.0,
+) -> pd.DataFrame:
+    """Evaluate champion models and linear baselines on 5-fold dev CV across framing/feature settings."""
+    caps_to_run = rul_caps if rul_caps is not None else [125, 150, None]
+    ws_to_run = alarm_ws if alarm_ws is not None else [15, 30, 50]
+    ks_to_run = window_ks if window_ks is not None else [10, 30]
+
+    rows: list[dict[str, Any]] = []
+
+    # 1. Alarm lead-time horizon w sensitivity (rul_cap=125, k=30)
+    clf_specs_k30 = {s["model_id"]: s for s in get_classification_ladder_specs(window_k=30)}
+    for w in ws_to_run:
+        df_w = add_targets(dev_df, rul_cap=125, alarm_w=int(w))
+        for mid in ("rung4_trends_logreg", "rung5_trends_hgb_clf"):
+            rows.append(
+                _eval_sensitivity_cv_model(
+                    df=df_w,
+                    spec=clf_specs_k30[mid],
+                    task_type="classification",
+                    sweep_dimension="alarm_horizon_w",
+                    setting_label=f"w={int(w)} cycles",
+                    rul_cap=125,
+                    alarm_w=int(w),
+                    cv_folds=cv_folds,
+                    c_fail=c_fail,
+                    c_waste=c_waste,
+                )
+            )
+
+    # 2. Piecewise RUL cap sensitivity (alarm_w=30, k=30)
+    reg_specs_k30 = {s["model_id"]: s for s in get_regression_ladder_specs(window_k=30)}
+    for cap in caps_to_run:
+        df_cap = add_targets(dev_df, rul_cap=cap, alarm_w=30)
+        cap_label = f"cap={cap}" if cap is not None else "Uncapped"
+        for mid in ("rung4_trends_ridge", "rung5_trends_hgb"):
+            rows.append(
+                _eval_sensitivity_cv_model(
+                    df=df_cap,
+                    spec=reg_specs_k30[mid],
+                    task_type="regression",
+                    sweep_dimension="rul_cap",
+                    setting_label=cap_label,
+                    rul_cap=cap,
+                    alarm_w=30,
+                    cv_folds=cv_folds,
+                    c_fail=c_fail,
+                    c_waste=c_waste,
+                )
+            )
+
+    # 3. Trailing window length k sensitivity (rul_cap=125, alarm_w=30)
+    df_default = add_targets(dev_df, rul_cap=125, alarm_w=30)
+    for k in ks_to_run:
+        reg_specs_k = {s["model_id"]: s for s in get_regression_ladder_specs(window_k=int(k))}
+        clf_specs_k = {s["model_id"]: s for s in get_classification_ladder_specs(window_k=int(k))}
+        for mid in ("rung4_trends_ridge", "rung5_trends_hgb"):
+            rows.append(
+                _eval_sensitivity_cv_model(
+                    df=df_default,
+                    spec=reg_specs_k[mid],
+                    task_type="regression",
+                    sweep_dimension="window_length_k",
+                    setting_label=f"k={int(k)} cycles",
+                    rul_cap=125,
+                    alarm_w=30,
+                    cv_folds=cv_folds,
+                    c_fail=c_fail,
+                    c_waste=c_waste,
+                )
+            )
+        for mid in ("rung4_trends_logreg", "rung5_trends_hgb_clf"):
+            rows.append(
+                _eval_sensitivity_cv_model(
+                    df=df_default,
+                    spec=clf_specs_k[mid],
+                    task_type="classification",
+                    sweep_dimension="window_length_k",
+                    setting_label=f"k={int(k)} cycles",
+                    rul_cap=125,
+                    alarm_w=30,
+                    cv_folds=cv_folds,
+                    c_fail=c_fail,
+                    c_waste=c_waste,
+                )
+            )
+
+    # 4. Scaler-only leakage check (Fold-isolated Pipeline vs Global dev scaling)
+    for leak_flag, label in (
+        (False, "Fold-Isolated Scaler (Pipeline)"),
+        (True, "Global Scaler (All 80 Dev)"),
+    ):
+        rows.append(
+            _eval_sensitivity_cv_model(
+                df=df_default,
+                spec=reg_specs_k30["rung4_trends_ridge"],
+                task_type="regression",
+                sweep_dimension="scaler_leakage_check",
+                setting_label=label,
+                rul_cap=125,
+                alarm_w=30,
+                cv_folds=cv_folds,
+                c_fail=c_fail,
+                c_waste=c_waste,
+                global_scale_leak=leak_flag,
+            )
+        )
+
+    return pd.DataFrame(rows)
+
+
+def audit_test_errors_and_case_studies(
+    test_df: pd.DataFrame,
+    test_preds: dict[str, np.ndarray],
+    test_probs: dict[str, np.ndarray],
+    locked_params: dict[str, float],
+    c_fail: float = 100.0,
+    c_waste: float = 1.0,
+    alarm_w: int = 30,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Audit per-engine errors on the 20 held-out test engines and extract 3 representative case studies."""
+    work = test_df[["unit_id", "cycle", "max_cycle", "rul", "rul_uncapped"]].copy()
+    work["pred_hgb"] = np.asarray(test_preds["rung5_trends_hgb"], dtype=np.float64)
+    work["pred_ridge"] = np.asarray(test_preds["rung4_trends_ridge"], dtype=np.float64)
+    work["prob_logreg"] = np.asarray(test_probs["rung4_trends_logreg"], dtype=np.float64)
+    work["err_hgb"] = work["pred_hgb"] - work["rul"]
+    work["err_ridge"] = work["pred_ridge"] - work["rul"]
+
+    fixed_out = extract_per_engine_policy_outcomes(
+        test_df, None, threshold=locked_params["fixed_k_dev"], c_fail=c_fail, c_waste=c_waste, policy_type="fixed", alarm_w=alarm_w
+    ).set_index("unit_id")
+    logreg_out = extract_per_engine_policy_outcomes(
+        test_df, work["prob_logreg"].to_numpy(), threshold=locked_params["champ_clf_p_dev"], c_fail=c_fail, c_waste=c_waste, policy_type="prob", alarm_w=alarm_w
+    ).set_index("unit_id")
+    hgb_out = extract_per_engine_policy_outcomes(
+        test_df, work["pred_hgb"].to_numpy(), threshold=locked_params["champ_reg_tau_dev"], c_fail=c_fail, c_waste=c_waste, policy_type="rul", alarm_w=alarm_w
+    ).set_index("unit_id")
+
+    engine_rows: list[dict[str, Any]] = []
+    for uid, grp in work.groupby("unit_id", sort=True):
+        uid_int = int(uid)
+        y_t = grp["rul"].to_numpy()
+        y_h = grp["pred_hgb"].to_numpy()
+        y_r = grp["pred_ridge"].to_numpy()
+        last30 = grp["rul_uncapped"].to_numpy() <= 30
+
+        fx = fixed_out.loc[uid_int]
+        lg = logreg_out.loc[uid_int]
+        hg = hgb_out.loc[uid_int]
+
+        engine_rows.append(
+            {
+                "unit_id": uid_int,
+                "max_cycle": int(grp["max_cycle"].iloc[0]),
+                "hgb_rmse": round(float(root_mean_squared_error(y_t, y_h)), 3),
+                "hgb_mae": round(float(mean_absolute_error(y_t, y_h)), 3),
+                "hgb_nasa_asym_mean": round(nasa_asymmetric_score(y_t, y_h, return_mean=True), 3),
+                "hgb_max_overpred": round(float(np.max(y_h - y_t)), 2),
+                "hgb_last30_mean_err": round(float(np.mean((y_h - y_t)[last30])), 2),
+                "ridge_rmse": round(float(root_mean_squared_error(y_t, y_r)), 3),
+                "fixed_outcome": "FAIL" if bool(fx["failed_in_service"]) else f"Replaced @{int(fx['alarm_cycle'])}",
+                "fixed_cost": float(fx["engine_cost"]),
+                "logreg_alarm_cycle": None if pd.isna(lg["alarm_cycle"]) else int(lg["alarm_cycle"]),
+                "logreg_wasted_cycles": float(lg["wasted_cycles"]),
+                "logreg_cost": float(lg["engine_cost"]),
+                "hgb_alarm_cycle": None if pd.isna(hg["alarm_cycle"]) else int(hg["alarm_cycle"]),
+                "hgb_wasted_cycles": float(hg["wasted_cycles"]),
+                "hgb_cost": float(hg["engine_cost"]),
+            }
+        )
+
+    audit_df = pd.DataFrame(engine_rows)
+
+    shortest_row = audit_df.loc[audit_df["max_cycle"].idxmin()]
+    longest_row = audit_df.loc[audit_df["max_cycle"].idxmax()]
+    exclude_ids = {int(shortest_row["unit_id"]), int(longest_row["unit_id"])}
+    remaining = audit_df[~audit_df["unit_id"].isin(exclude_ids)]
+    worst_row = remaining.loc[remaining["hgb_nasa_asym_mean"].idxmax()]
+
+    selected_specs = [
+        ("shortest_lived", "Shortest-Lived Engine", shortest_row),
+        ("longest_lived", "Longest-Lived Engine", longest_row),
+        ("worst_asymmetric_error", "Worst NASA Asymmetric Error Engine", worst_row),
+    ]
+
+    case_studies: dict[str, Any] = {}
+    for key, label, row_s in selected_specs:
+        uid_int = int(row_s["unit_id"])
+        grp = work[work["unit_id"] == uid_int]
+        fx = fixed_out.loc[uid_int]
+        lg = logreg_out.loc[uid_int]
+        hg = hgb_out.loc[uid_int]
+        case_studies[key] = {
+            "unit_id": uid_int,
+            "role": key,
+            "label": label,
+            "max_cycle": int(row_s["max_cycle"]),
+            "hgb_rmse": float(row_s["hgb_rmse"]),
+            "hgb_mae": float(row_s["hgb_mae"]),
+            "hgb_nasa_asym_mean": float(row_s["hgb_nasa_asym_mean"]),
+            "hgb_max_overpred": float(row_s["hgb_max_overpred"]),
+            "hgb_last30_mean_err": float(row_s["hgb_last30_mean_err"]),
+            "ridge_rmse": float(row_s["ridge_rmse"]),
+            "fixed_k_dev": int(round(locked_params["fixed_k_dev"])),
+            "fixed_failed": bool(fx["failed_in_service"]),
+            "fixed_wasted": float(fx["wasted_cycles"]),
+            "fixed_cost": float(fx["engine_cost"]),
+            "logreg_alarm_cycle": None if pd.isna(lg["alarm_cycle"]) else int(lg["alarm_cycle"]),
+            "logreg_failed": bool(lg["failed_in_service"]),
+            "logreg_wasted": float(lg["wasted_cycles"]),
+            "logreg_cost": float(lg["engine_cost"]),
+            "hgb_alarm_cycle": None if pd.isna(hg["alarm_cycle"]) else int(hg["alarm_cycle"]),
+            "hgb_failed": bool(hg["failed_in_service"]),
+            "hgb_wasted": float(hg["wasted_cycles"]),
+            "hgb_cost": float(hg["engine_cost"]),
+            "cycles": grp["cycle"].astype(int).tolist(),
+            "true_rul": grp["rul"].round(2).tolist(),
+            "pred_hgb": grp["pred_hgb"].round(2).tolist(),
+            "pred_ridge": grp["pred_ridge"].round(2).tolist(),
+            "prob_logreg": grp["prob_logreg"].round(4).tolist(),
+        }
+
+    # Residual summary by true capped RUL stage
+    stage_bins = [
+        ("0-15 (Critical)", 0, 15),
+        ("16-30 (Alarm Zone)", 16, 30),
+        ("31-60 (Late Wear)", 31, 60),
+        ("61-90 (Mid Wear)", 61, 90),
+        ("91-124 (Early Wear)", 91, 124),
+        ("125 (Flat Cap)", 125, 125),
+    ]
+    stage_rows: list[dict[str, Any]] = []
+    for s_label, lo, hi in stage_bins:
+        sub = work[(work["rul"] >= lo) & (work["rul"] <= hi)]
+        stage_rows.append(
+            {
+                "rul_stage": s_label,
+                "n_rows": int(len(sub)),
+                "mean_bias_hgb": round(float(sub["err_hgb"].mean()), 2),
+                "std_err_hgb": round(float(sub["err_hgb"].std()), 2),
+                "rmse_hgb": round(float(np.sqrt(np.mean(sub["err_hgb"] ** 2))), 2),
+                "mean_bias_ridge": round(float(sub["err_ridge"].mean()), 2),
+                "rmse_ridge": round(float(np.sqrt(np.mean(sub["err_ridge"] ** 2))), 2),
+            }
+        )
+
+    # Continuous 5-cycle binned curve over true capped RUL (0..125) for error-vs-RUL plotting
+    curve_bins = [(lo, lo + 4, lo + 2.0) for lo in range(0, 125, 5)] + [(125, 125, 125.0)]
+    rul_centers, hgb_bias, hgb_std, ridge_bias, ridge_std = [], [], [], [], []
+    for lo, hi, center in curve_bins:
+        sub = work[(work["rul"] >= lo) & (work["rul"] <= hi)]
+        if len(sub) == 0:
+            continue
+        rul_centers.append(float(center))
+        hgb_bias.append(round(float(sub["err_hgb"].mean()), 3))
+        hgb_std.append(round(float(sub["err_hgb"].std(ddof=0)), 3))
+        ridge_bias.append(round(float(sub["err_ridge"].mean()), 3))
+        ridge_std.append(round(float(sub["err_ridge"].std(ddof=0)), 3))
+
+    payload = {
+        "case_studies": case_studies,
+        "error_by_rul_stage": stage_rows,
+        "residual_by_true_rul": {
+            "rul_centers": rul_centers,
+            "hgb_mean_bias": hgb_bias,
+            "hgb_std_err": hgb_std,
+            "ridge_mean_bias": ridge_bias,
+            "ridge_std_err": ridge_std,
+        },
+        "tau_dev": float(locked_params["champ_reg_tau_dev"]),
+        "p_dev": float(locked_params["champ_clf_p_dev"]),
+        "fixed_k_dev": float(locked_params["fixed_k_dev"]),
+    }
+    return audit_df, payload
