@@ -1,4 +1,4 @@
-"""Centralized, clean matplotlib visualizations for Phases 2–5.
+"""Centralized, clean matplotlib visualizations for C-MAPSS FD001 predictive maintenance.
 
 Generates 8 focused, 1- to 2-panel figures in `results/figures/` without cluttering core
 modeling and simulation modules.
@@ -186,7 +186,7 @@ def plot_trailing_feature_diagnostics(
     window_k: int = 30,
     sample_unit_id: int = 1,
 ) -> None:
-    """Plot 2-panel Phase 3 figure: trailing mean/slope on Engine #1 and RUL correlation gain."""
+    """Plot 2-panel feature figure: trailing mean/slope on Engine #1 and RUL correlation gain."""
     pipe = build_preprocessing_pipeline(window_k=window_k, feature_mode="trailing_trends", scale=False)
     feat_df = pipe.fit_transform(dev_df)
 
@@ -247,7 +247,7 @@ def plot_cv_baseline_ladder(
     clf_df: pd.DataFrame,
     out_path: Path,
 ) -> None:
-    """Plot 2-panel Phase 4 ladder progression: 5-fold CV RMSE and OOF Policy Cost (c_fail=100)."""
+    """Plot 2-panel CV ladder progression: 5-fold CV RMSE and OOF Policy Cost (c_fail=100)."""
     fig, axes = plt.subplots(1, 2, figsize=(13.5, 5.0), layout="constrained")
 
     short_reg_names = {
@@ -365,7 +365,7 @@ def plot_cost_curve_vs_fixed_schedule(
     boot_samples: dict[str, np.ndarray],
     out_path: Path,
 ) -> None:
-    """Plot 2-panel Phase 5 cost evaluation: Cost Ratio Sweep and Bootstrap Savings CI."""
+    """Plot 2-panel held-out cost evaluation: Cost Ratio Sweep and Bootstrap Savings CI."""
     fig, axes = plt.subplots(1, 2, figsize=(13.5, 5.0), layout="constrained")
 
     ax1 = axes[0]

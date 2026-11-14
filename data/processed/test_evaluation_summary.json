@@ -1,5 +1,5 @@
 {
-  "phase": "Phase 5: Decision-Centric Cost Policy Simulation & Held-Out Test Evaluation",
+  "module": "Decision-Centric Cost Policy Simulation & Held-Out Test Evaluation",
   "primary_window_k": 30,
   "heldout_test_engines_count": 20,
   "heldout_test_rows": 4291,

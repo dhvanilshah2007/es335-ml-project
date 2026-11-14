@@ -1,6 +1,6 @@
 """Causal trailing-window feature engineering and leakage-proof scikit-learn pipelines.
 
-Phase 3 of the ES 335 Predictive Maintenance Project:
+Core components:
 - `SensorVarianceFilter`: selects informative sensors strictly on training folds.
 - `TrailingWindowFeatureTransformer`: computes per-engine, strictly causal trailing window
   statistics (`rolling_mean`, `rolling_std`, `slope`) over `[t - k + 1, t]` plus engine age (`cycle`).

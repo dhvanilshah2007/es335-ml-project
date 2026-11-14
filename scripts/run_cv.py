@@ -1,7 +1,7 @@
-"""CLI script for Phase 4: Baseline Ladder & 5-Fold GroupKFold Cross-Validation on 80 Dev Engines.
+"""Baseline Ladder & 5-Fold GroupKFold Cross-Validation on 80 Development Engines.
 
 Usage:
-    python scripts/run_phase4_cv.py
+    python scripts/run_cv.py
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ def main() -> int:
     figures_dir.mkdir(parents=True, exist_ok=True)
 
     print("=" * 80)
-    print(f"Phase 4: Baseline Ladder & 5-Fold GroupKFold CV (k={window_k}, 80 Dev Engines)")
+    print(f"Baseline Ladder & 5-Fold GroupKFold CV (k={window_k}, 80 Dev Engines)")
     print("=" * 80)
 
     t0 = time.perf_counter()
@@ -107,14 +107,14 @@ def main() -> int:
     plot_cv_pr_and_calibration(dev_df, oof_probs_clf, fig2_path)
 
     elapsed = time.perf_counter() - t0
-    print("\n5. Saved Phase 4 Outputs:")
+    print("\n5. Saved Cross-Validation Outputs:")
     print(f"   - {reg_csv_path.relative_to(REPO_ROOT)}")
     print(f"   - {clf_csv_path.relative_to(REPO_ROOT)}")
     print(f"   - {imp_csv_path.relative_to(REPO_ROOT)}")
     print(f"   - {fig1_path.relative_to(REPO_ROOT)}")
     print(f"   - {fig2_path.relative_to(REPO_ROOT)}")
     print("=" * 80)
-    print(f"[SUCCESS] Phase 4 completed in {elapsed:.2f}s strictly on 80 development engines.")
+    print(f"[SUCCESS] Cross-validation completed in {elapsed:.2f}s strictly on 80 development engines.")
     return 0
 
 

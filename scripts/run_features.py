@@ -1,4 +1,4 @@
-"""CLI script for Phase 3: Trailing-Window Feature Engineering & Leakage-Proof Pipelines.
+"""Trailing-Window Feature Engineering & Leakage-Proof Pipelines.
 
 Verifies:
 1. Feature dimensionality across ladder modes (`age_only`, `instantaneous`, `trailing_trends`).
@@ -115,7 +115,7 @@ def main() -> int:
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     print("=" * 72)
-    print(f"Phase 3: Trailing-Window Feature Engineering (k={window_k}, 80 Dev Engines)")
+    print(f"Trailing-Window Feature Engineering (k={window_k}, 80 Dev Engines)")
     print("=" * 72)
 
     t0 = time.perf_counter()
@@ -160,7 +160,7 @@ def main() -> int:
     plot_trailing_feature_diagnostics(dev_df, corr_df, fig_path, window_k=window_k, sample_unit_id=1)
 
     metadata_payload = {
-        "phase": "Phase 3: Trailing-Window Feature Engineering & Pipelines",
+        "module": "Trailing-Window Feature Engineering & Pipelines",
         "primary_window_k": window_k,
         "dev_engines_count": int(dev_df["unit_id"].nunique()),
         "dev_rows_count": int(len(dev_df)),
@@ -182,11 +182,11 @@ def main() -> int:
         json.dump(metadata_payload, f, indent=2)
 
     elapsed = time.perf_counter() - t0
-    print("\n4. Saved Phase 3 Outputs:")
+    print("\n4. Saved Feature Engineering Outputs:")
     print(f"   - {meta_path.relative_to(REPO_ROOT)}")
     print(f"   - {fig_path.relative_to(REPO_ROOT)}")
     print("=" * 72)
-    print(f"[SUCCESS] Phase 3 completed in {elapsed:.2f}s.")
+    print(f"[SUCCESS] Feature engineering verification completed in {elapsed:.2f}s.")
     return 0
 
 

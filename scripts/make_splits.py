@@ -1,4 +1,4 @@
-"""CLI script for Phase 1: Generate and persist leakage-proof engine splits and verify targets.
+"""Generate and persist leakage-proof engine splits and verify targets.
 
 Usage:
     python scripts/make_splits.py
@@ -35,7 +35,7 @@ def main() -> int:
     alarm_w = int(cfg["framing"]["alarm_w"])
 
     print("=" * 72)
-    print("Phase 1: Leakage-Proof Data Foundation & Engine Split Protocol")
+    print("Leakage-Proof Data Foundation & Engine Split Protocol")
     print("=" * 72)
 
     train_df, test_df, rul_series = load_raw_fd001(REPO_ROOT / cfg["paths"]["raw_data_dir"])
@@ -118,7 +118,7 @@ def main() -> int:
         print(f"   - {key:<15}: {path.relative_to(REPO_ROOT)}")
 
     print("=" * 72)
-    print("[SUCCESS] Phase 1 completed with zero data leakage.")
+    print("[SUCCESS] Engine splits generated and verified with zero data leakage.")
     return 0
 
 

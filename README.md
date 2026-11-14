@@ -39,7 +39,7 @@ This project studies whether multivariate sensor telemetry from turbofan engines
 ├── requirements.txt          # Python environment dependencies
 ├── data/
 │   ├── splits/               # Saved 80/20 engine ID split lists and 5-fold CV assignments
-│   └── processed/            # Feature metadata & consolidated Phase 5 summary JSON
+│   └── processed/            # Feature metadata & consolidated test evaluation summary JSON
 ├── src/
 │   ├── constants.py          # Sensor column names and physical descriptions
 │   ├── data.py               # Ingestion, target generation, and split management
@@ -50,18 +50,18 @@ This project studies whether multivariate sensor telemetry from turbofan engines
 │   └── plotting.py           # Centralized figure generation
 ├── scripts/
 │   ├── verify_data.py        # Verifies raw FD001 file integrity
-│   ├── make_splits.py        # Phase 1: generates deterministic 80/20 engine splits
-│   ├── run_eda.py            # Phase 2: EDA screening, PCA index, and 3 figures
-│   ├── run_features.py       # Phase 3: causality tests and trailing feature diagnostics
-│   ├── run_phase4_cv.py      # Phase 4: 5-fold GroupKFold ladder and PR/calibration plots
-│   └── run_phase5_test.py    # Phase 5: held-out test, cost sweep, bootstrap, leakage check
+│   ├── make_splits.py        # Generates deterministic 80/20 engine splits & 5-fold CV assignments
+│   ├── run_eda.py            # EDA screening, PCA index, and 3 diagnostic figures
+│   ├── run_features.py       # Causality tests and trailing feature diagnostics
+│   ├── run_cv.py             # 5-fold GroupKFold ladder and PR/calibration plots
+│   └── run_test_evaluation.py # Held-out test, cost sweep, bootstrap CIs, leakage check
 ├── notebooks/
-│   ├── 01_eda_and_features.ipynb         # Phases 1–3 narrative walkthrough
-│   └── 02_modeling_and_evaluation.ipynb  # Phases 4–5 results & cost policy analysis
+│   ├── 01_eda_and_features.ipynb         # Exploratory analysis & trailing-window feature walkthrough
+│   └── 02_modeling_and_evaluation.ipynb  # Baseline ladder, cost policy & held-out test analysis
 ├── results/
 │   ├── metrics/              # Core CSV tables (EDA screening, CV ladders, test CIs, cost sweep, leakage)
 │   └── figures/              # 8 clean, focused PNG plots
-└── docs/                     # Planned static GitHub Pages site (Phase 7)
+└── docs/                     # Static GitHub Pages site
 ```
 
 ---
@@ -76,12 +76,12 @@ This project studies whether multivariate sensor telemetry from turbofan engines
    pip install -r requirements.txt
    ```
 
-2. **Run Phases 1–5 end-to-end:**
+2. **Run the pipeline end-to-end:**
    ```bash
    python scripts/verify_data.py
    python scripts/make_splits.py
    python scripts/run_eda.py
    python scripts/run_features.py
-   python scripts/run_phase4_cv.py
-   python scripts/run_phase5_test.py
+   python scripts/run_cv.py
+   python scripts/run_test_evaluation.py
    ```

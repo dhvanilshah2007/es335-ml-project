@@ -1,12 +1,12 @@
 """Data ingestion, target formulation, and leakage-proof split management for C-MAPSS FD001.
 
-Phase 1 of the ES 335 Predictive Maintenance Project:
+Core responsibilities:
 - Loads whitespace-delimited NASA C-MAPSS FD001 files (`train_FD001.txt`, `test_FD001.txt`, `RUL_FD001.txt`).
 - Computes piecewise linear RUL targets (capped at `rul_cap`) and binary lead-time alarm targets (`RUL <= w`).
 - Partitions the 100 training engines into 80 development engines and 20 held-out test engines
   using a fixed random seed (`seed=42`).
 - Generates and persists 5-fold `GroupKFold` cross-validation assignments across the 80 development engines.
-- Enforces an explicit API boundary between development data (Phases 2-4) and held-out test data (Phase 5).
+- Enforces an explicit API boundary between development data and held-out test data.
 """
 
 from __future__ import annotations
@@ -274,7 +274,7 @@ def save_engine_splits(split_payload: dict[str, Any], splits_dir: Path | str | N
     test_payload = {
         "dataset": split_payload["dataset"],
         "role": "heldout_test_20_engines",
-        "usage": "SEALED until Phase 5. Used strictly ONCE for final model evaluation and maintenance policy cost simulation.",
+        "usage": "SEALED until final evaluation. Used strictly ONCE for held-out model evaluation and maintenance policy cost simulation.",
         "random_seed": split_payload["random_seed"],
         "engine_count": split_payload["test_engine_count"],
         "engine_ids": split_payload["test_engine_ids"],
@@ -328,7 +328,7 @@ def load_development_data(
 ) -> pd.DataFrame:
     """Load strictly the 80 development engines with RUL and alarm targets attached.
 
-    Safe to call in Phases 2, 3, and 4 without touching the 20 held-out test engines.
+    Safe to call during EDA, feature engineering, and cross-validation without touching the 20 held-out test engines.
     """
     train_df, _, _ = load_raw_fd001(data_dir=data_dir)
     dev_ids, _, _ = load_engine_splits(splits_dir=splits_dir)
@@ -342,7 +342,7 @@ def load_heldout_test_data(
     data_dir: Path | str | None = None,
     splits_dir: Path | str | None = None,
 ) -> pd.DataFrame:
-    """Load the 20 held-out test engines (run-to-failure) for Phase 5 final evaluation ONLY."""
+    """Load the 20 held-out test engines (run-to-failure) for final held-out evaluation ONLY."""
     train_df, _, _ = load_raw_fd001(data_dir=data_dir)
     _, test_ids, _ = load_engine_splits(splits_dir=splits_dir)
     test_df = train_df[train_df["unit_id"].isin(test_ids)].sort_values(INDEX_COLS).reset_index(drop=True)

@@ -1,6 +1,6 @@
 """Exploratory Data Analysis (EDA) and Degradation Physics module for C-MAPSS FD001.
 
-Phase 2 of the ES 335 Predictive Maintenance Project:
+Core responsibilities:
 - Screens all 3 operating settings and 21 sensors strictly on the 80 development engines.
 - Identifies constant/near-constant channels vs. the 14 informative degradation sensors.
 - Constructs an unsupervised 1D PCA Composite Health Index on the retained sensors.

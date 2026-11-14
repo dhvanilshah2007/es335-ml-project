@@ -1,6 +1,6 @@
 """Baseline ladder, 5-fold GroupKFold cross-validation, and threshold/policy optimization.
 
-Phase 4 of the ES 335 Predictive Maintenance Project:
+Core responsibilities:
 - Implements the NASA Asymmetric Scoring function and regression/classification evaluation metrics.
 - Evaluates Rungs 0 through 5 of the streamlined baseline ladder strictly on the 80 development
   engines using 5-fold `GroupKFold` grouped by `unit_id`.

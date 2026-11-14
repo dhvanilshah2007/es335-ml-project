@@ -1,4 +1,4 @@
-"""CLI script for Phase 2: Exploratory Data Analysis & Degradation Physics on 80 Dev Engines.
+"""Exploratory Data Analysis & Degradation Physics on 80 Development Engines.
 
 Usage:
     python scripts/run_eda.py
@@ -32,7 +32,7 @@ def main() -> int:
     figures_dir.mkdir(parents=True, exist_ok=True)
 
     print("=" * 72)
-    print("Phase 2: Exploratory Data Analysis & Degradation Physics (80 Dev Engines)")
+    print("Exploratory Data Analysis & Degradation Physics (80 Dev Engines)")
     print("=" * 72)
 
     dev_df = load_development_data(rul_cap=rul_cap, alarm_w=alarm_w)
@@ -56,7 +56,7 @@ def main() -> int:
     )
     print(f"   - Correlation with capped RUL: r = {pca_info['corr_pc1_with_rul_capped']:+.4f}")
 
-    # Generate 3 clean Phase 2 figures
+    # Generate 3 clean EDA figures
     fig1_path = figures_dir / "engine_lifetime_distribution.png"
     fig2_path = figures_dir / "sensor_trajectories_aligned.png"
     fig3_path = figures_dir / "sensor_correlation_and_pca_health_index.png"
@@ -65,13 +65,13 @@ def main() -> int:
     plot_aligned_degradation_trajectories(dev_df, fig2_path)
     plot_correlation_and_pca_health_index(dev_df, pca_df, retained_sensors, pca_info, fig3_path)
 
-    print("\n4. Saved Phase 2 Outputs:")
+    print("\n4. Saved EDA Outputs:")
     print(f"   - {sensor_csv_path.relative_to(REPO_ROOT)}")
     print(f"   - {fig1_path.relative_to(REPO_ROOT)}")
     print(f"   - {fig2_path.relative_to(REPO_ROOT)}")
     print(f"   - {fig3_path.relative_to(REPO_ROOT)}")
     print("=" * 72)
-    print("[SUCCESS] Phase 2 completed strictly on 80 development engines.")
+    print("[SUCCESS] EDA completed strictly on 80 development engines.")
     return 0
 
 

@@ -1,5 +1,5 @@
 {
-  "phase": "Phase 3: Trailing-Window Feature Engineering & Pipelines",
+  "module": "Trailing-Window Feature Engineering & Pipelines",
   "primary_window_k": 30,
   "dev_engines_count": 80,
   "dev_rows_count": 16340,

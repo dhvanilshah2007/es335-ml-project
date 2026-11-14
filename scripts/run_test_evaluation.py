@@ -1,7 +1,7 @@
-"""Execute Phase 5: Decision-Centric Cost Policy Simulation & Single Held-Out Test Evaluation.
+"""Decision-Centric Cost Policy Simulation & Single Held-Out Test Evaluation.
 
 Usage:
-    python scripts/run_phase5_test.py
+    python scripts/run_test_evaluation.py
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ def main() -> int:
     seed = int(cfg["project"]["random_seed"])
 
     print("=" * 84)
-    print(f"PHASE 5: COST POLICY SIMULATION & HELD-OUT TEST EVALUATION (k={window_k})")
+    print(f"COST POLICY SIMULATION & HELD-OUT TEST EVALUATION (k={window_k})")
     print("=" * 84)
 
     dev_df = load_development_data(rul_cap=rul_cap, alarm_w=alarm_w)
@@ -173,8 +173,8 @@ def main() -> int:
         c_fail=default_c_fail, c_waste=c_waste, policy_type="rul",
     )
 
-    phase5_summary = {
-        "phase": "Phase 5: Decision-Centric Cost Policy Simulation & Held-Out Test Evaluation",
+    test_summary = {
+        "module": "Decision-Centric Cost Policy Simulation & Held-Out Test Evaluation",
         "primary_window_k": window_k,
         "heldout_test_engines_count": 20,
         "heldout_test_rows": int(len(test_df)),
@@ -193,8 +193,8 @@ def main() -> int:
             "champion_regressor_hgb": per_engine_reg.to_dict(orient="records"),
         },
     }
-    with open(processed_dir / "phase5_test_summary.json", "w", encoding="utf-8") as f:
-        json.dump(phase5_summary, f, indent=2)
+    with open(processed_dir / "test_evaluation_summary.json", "w", encoding="utf-8") as f:
+        json.dump(test_summary, f, indent=2)
 
     plot_cost_curve_vs_fixed_schedule(
         sweep_df=sweep_df, breakeven_info=breakeven_info, boot_samples=boot_samples,
@@ -205,11 +205,11 @@ def main() -> int:
         out_path=fig_dir / "leakage_comparison_scatter.png",
     )
 
-    print("\nSaved Phase 5 Outputs:")
+    print("\nSaved Test Evaluation Outputs:")
     print(f"  - {(metrics_dir / 'test_final_metrics.csv').relative_to(REPO_ROOT)}")
     print(f"  - {(metrics_dir / 'cost_policy_comparison.csv').relative_to(REPO_ROOT)}")
     print(f"  - {(metrics_dir / 'leakage_experiment_results.csv').relative_to(REPO_ROOT)}")
-    print(f"  - {(processed_dir / 'phase5_test_summary.json').relative_to(REPO_ROOT)}")
+    print(f"  - {(processed_dir / 'test_evaluation_summary.json').relative_to(REPO_ROOT)}")
     print(f"  - {(fig_dir / 'cost_curve_vs_fixed_schedule.png').relative_to(REPO_ROOT)}")
     print(f"  - {(fig_dir / 'leakage_comparison_scatter.png').relative_to(REPO_ROOT)}")
     print("=" * 84)

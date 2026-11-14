@@ -1,7 +1,7 @@
 {
   "dataset": "NASA C-MAPSS FD001",
   "role": "heldout_test_20_engines",
-  "usage": "SEALED until Phase 5. Used strictly ONCE for final model evaluation and maintenance policy cost simulation.",
+  "usage": "SEALED until final evaluation. Used strictly ONCE for held-out model evaluation and maintenance policy cost simulation.",
   "random_seed": 42,
   "engine_count": 20,
   "engine_ids": [

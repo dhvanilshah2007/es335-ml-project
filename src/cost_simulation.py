@@ -1,6 +1,6 @@
 """Decision-centric maintenance cost simulation, held-out test evaluation, and bootstrap CIs.
 
-Phase 5 of the ES 335 Predictive Maintenance Project:
+Core responsibilities:
 - Unseals the 20 held-out test engines once for final evaluation of models trained strictly on the
   80 development engines using locked development thresholds (`K*_dev`, `p*_dev`, `tau*_dev`).
 - Sweeps failure-to-waste cost ratios (`c_fail : c_waste`) to find break-even ratios against
