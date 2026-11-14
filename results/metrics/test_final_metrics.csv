@@ -1,0 +1,16 @@
+metric_key,model_or_comparison,metric_name,test_point_estimate,bootstrap_mean,bootstrap_std,ci95_lower,ci95_upper,prob_positive_savings
+champ_reg_rmse,Champion Regressor (HistGBR),Test RMSE (cycles),11.7334,11.6878,0.6619,10.3408,12.9901,
+champ_reg_mae,Champion Regressor (HistGBR),Test MAE (cycles),7.9582,7.9414,0.5274,6.9426,9.0462,
+champ_reg_nasa_asym,Champion Regressor (HistGBR),Test NASA Asymmetric Score (Mean),2.2925,2.2828,0.3026,1.7372,2.8918,
+ridge_reg_rmse,Linear Regressor (Ridge),Test RMSE (cycles),14.7903,14.7445,0.8417,13.1359,16.3738,
+champ_clf_pr_auc,Champion Classifier (Logistic L2),Test PR-AUC,0.9888,0.9888,0.0036,0.9804,0.9946,
+champ_clf_brier,Champion Classifier (Logistic L2),Test Brier Score,0.0129,0.013,0.002,0.0095,0.0174,
+tree_clf_pr_auc,Tree Classifier (HistGBC),Test PR-AUC,0.9827,0.983,0.0031,0.9763,0.9887,
+tree_clf_brier,Tree Classifier (HistGBC),Test Brier Score,0.0161,0.0162,0.002,0.0125,0.0204,
+fixed_cost_c100,Locked Fixed Schedule (K*_dev=179),Test Policy Cost per Engine (c=100),58.4,58.923,10.217,39.2,79.5525,
+champ_clf_cost_c100,Champion Classifier Policy (Logistic L2),Test Policy Cost per Engine (c=100),18.2,18.2011,0.5905,17.1,19.3513,
+tree_clf_cost_c100,Tree Classifier Policy (HistGBC),Test Policy Cost per Engine (c=100),16.45,16.5442,4.4941,11.1487,26.05,
+champ_reg_cost_c100,Champion Regressor Policy (HistGBR),Test Policy Cost per Engine (c=100),13.9,13.9998,4.6025,8.65,23.6,
+paired_savings_champ_clf_vs_fixed,Paired Savings: Fixed minus Logistic Classifier,Cost Reduction per Engine (c=100),40.2,40.7219,10.2551,20.9975,61.5012,100.0
+paired_savings_tree_clf_vs_fixed,Paired Savings: Fixed minus HistGBC Classifier,Cost Reduction per Engine (c=100),41.95,42.3788,8.6122,25.6,58.305,100.0
+paired_savings_champ_reg_vs_fixed,Paired Savings: Fixed minus HistGBR Regressor,Cost Reduction per Engine (c=100),44.5,44.9232,8.6336,28.15,61.3512,100.0

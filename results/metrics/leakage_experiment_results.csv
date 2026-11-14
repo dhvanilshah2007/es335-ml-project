@@ -1,0 +1,4 @@
+model_id,model_label,proper_groupkfold_cv_rmse,leaky_random_kfold_cv_rmse,proper_heldout_engines_test_rmse,leaky_random_row_split_test_rmse,artificial_rmse_drop_cycles,artificial_error_reduction_pct,proper_test_r2,leaky_test_r2,proper_test_nasa_asym,leaky_test_nasa_asym
+rung4_trends_ridge,Ridge Linear (k=30),15.298,14.767,14.79,14.63,0.161,1.09,0.8731,0.8738,3.105,3.366
+rung5_trends_hgb,HistGradientBoosting (depth=5),12.221,8.35,11.733,8.534,3.2,27.27,0.9201,0.9571,2.293,1.217
+rung5_trends_rf,Random Forest (depth=10),12.43,9.48,11.933,9.603,2.33,19.53,0.9174,0.9456,2.349,1.607

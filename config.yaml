@@ -36,7 +36,7 @@ framing:
 
 features:
   # Trailing rolling window length k
-  window_k: 10
+  window_k: 30
   window_k_sensitivity: [10, 30]
   # Summary features per retained sensor (computed per engine with strictly trailing windows)
   summary_types: ["rolling_mean", "rolling_std", "slope"]
@@ -46,7 +46,7 @@ features:
 
 cost_simulation:
   c_waste: 1.0
-  cost_ratios: [20, 30, 50, 75, 100, 150, 200, 300]
+  cost_ratios: [10, 20, 30, 50, 75, 100, 150, 200, 300]
   default_c_fail: 100.0
 
 evaluation:

@@ -1,16 +1,41 @@
 {
   "phase": "Phase 3: Trailing-Window Feature Engineering & Pipelines",
+  "primary_window_k": 30,
   "dev_engines_count": 80,
   "dev_rows_count": 16340,
-  "early_cycle_boundary_rule": "Expanding causal window for cycles t < k (at t=1: mean=raw, std=0.0, slope=0.0; at 2 <= t < k: computed over cycles 1..t). Preserves all early cycles without NaNs.",
+  "retained_sensors": [
+    "sensor_2",
+    "sensor_3",
+    "sensor_4",
+    "sensor_7",
+    "sensor_8",
+    "sensor_9",
+    "sensor_11",
+    "sensor_12",
+    "sensor_13",
+    "sensor_14",
+    "sensor_15",
+    "sensor_17",
+    "sensor_20",
+    "sensor_21"
+  ],
+  "dropped_sensors": [
+    "sensor_1",
+    "sensor_5",
+    "sensor_6",
+    "sensor_10",
+    "sensor_16",
+    "sensor_18",
+    "sensor_19"
+  ],
+  "early_cycle_boundary_rule": "Expanding causal window for cycles t < k (at t=1: mean=raw, std=0.0, slope=0.0; at 2 <= t < k: computed over cycles 1..t).",
   "feature_modes": {
     "age_only": {
       "description": "Rung 2: Age-Only Baseline",
       "num_features": 1,
       "feature_names": [
         "cycle"
-      ],
-      "compute_time_ms": 9.62
+      ]
     },
     "instantaneous": {
       "description": "Rung 3: Current Sensor Values + Age",
@@ -31,61 +56,10 @@
         "sensor_17",
         "sensor_20",
         "sensor_21"
-      ],
-      "compute_time_ms": 16.39
+      ]
     },
-    "trailing_trends_k10": {
-      "description": "Rung 4/5: Trailing Window Trends (k=10) + Age [PRIMARY]",
-      "num_features": 43,
-      "feature_names": [
-        "cycle",
-        "sensor_2_mean_k10",
-        "sensor_3_mean_k10",
-        "sensor_4_mean_k10",
-        "sensor_7_mean_k10",
-        "sensor_8_mean_k10",
-        "sensor_9_mean_k10",
-        "sensor_11_mean_k10",
-        "sensor_12_mean_k10",
-        "sensor_13_mean_k10",
-        "sensor_14_mean_k10",
-        "sensor_15_mean_k10",
-        "sensor_17_mean_k10",
-        "sensor_20_mean_k10",
-        "sensor_21_mean_k10",
-        "sensor_2_std_k10",
-        "sensor_3_std_k10",
-        "sensor_4_std_k10",
-        "sensor_7_std_k10",
-        "sensor_8_std_k10",
-        "sensor_9_std_k10",
-        "sensor_11_std_k10",
-        "sensor_12_std_k10",
-        "sensor_13_std_k10",
-        "sensor_14_std_k10",
-        "sensor_15_std_k10",
-        "sensor_17_std_k10",
-        "sensor_20_std_k10",
-        "sensor_21_std_k10",
-        "sensor_2_slope_k10",
-        "sensor_3_slope_k10",
-        "sensor_4_slope_k10",
-        "sensor_7_slope_k10",
-        "sensor_8_slope_k10",
-        "sensor_9_slope_k10",
-        "sensor_11_slope_k10",
-        "sensor_12_slope_k10",
-        "sensor_13_slope_k10",
-        "sensor_14_slope_k10",
-        "sensor_15_slope_k10",
-        "sensor_17_slope_k10",
-        "sensor_20_slope_k10",
-        "sensor_21_slope_k10"
-      ],
-      "compute_time_ms": 58.2
-    },
-    "trailing_trends_k30": {
-      "description": "Sensitivity: Trailing Window Trends (k=30) + Age",
+    "trailing_trends": {
+      "description": "Rung 4/5: Trailing Window Trends (k=30) + Age",
       "num_features": 43,
       "feature_names": [
         "cycle",
@@ -131,72 +105,7 @@
         "sensor_17_slope_k30",
         "sensor_20_slope_k30",
         "sensor_21_slope_k30"
-      ],
-      "compute_time_ms": 80.36
-    },
-    "combined_k10": {
-      "description": "Optional: Instantaneous + Trailing Trends (k=10) + Age",
-      "num_features": 57,
-      "feature_names": [
-        "cycle",
-        "sensor_2",
-        "sensor_3",
-        "sensor_4",
-        "sensor_7",
-        "sensor_8",
-        "sensor_9",
-        "sensor_11",
-        "sensor_12",
-        "sensor_13",
-        "sensor_14",
-        "sensor_15",
-        "sensor_17",
-        "sensor_20",
-        "sensor_21",
-        "sensor_2_mean_k10",
-        "sensor_3_mean_k10",
-        "sensor_4_mean_k10",
-        "sensor_7_mean_k10",
-        "sensor_8_mean_k10",
-        "sensor_9_mean_k10",
-        "sensor_11_mean_k10",
-        "sensor_12_mean_k10",
-        "sensor_13_mean_k10",
-        "sensor_14_mean_k10",
-        "sensor_15_mean_k10",
-        "sensor_17_mean_k10",
-        "sensor_20_mean_k10",
-        "sensor_21_mean_k10",
-        "sensor_2_std_k10",
-        "sensor_3_std_k10",
-        "sensor_4_std_k10",
-        "sensor_7_std_k10",
-        "sensor_8_std_k10",
-        "sensor_9_std_k10",
-        "sensor_11_std_k10",
-        "sensor_12_std_k10",
-        "sensor_13_std_k10",
-        "sensor_14_std_k10",
-        "sensor_15_std_k10",
-        "sensor_17_std_k10",
-        "sensor_20_std_k10",
-        "sensor_21_std_k10",
-        "sensor_2_slope_k10",
-        "sensor_3_slope_k10",
-        "sensor_4_slope_k10",
-        "sensor_7_slope_k10",
-        "sensor_8_slope_k10",
-        "sensor_9_slope_k10",
-        "sensor_11_slope_k10",
-        "sensor_12_slope_k10",
-        "sensor_13_slope_k10",
-        "sensor_14_slope_k10",
-        "sensor_15_slope_k10",
-        "sensor_17_slope_k10",
-        "sensor_20_slope_k10",
-        "sensor_21_slope_k10"
-      ],
-      "compute_time_ms": 61.65
+      ]
     }
   },
   "integrity_verification": {
@@ -211,22 +120,10 @@
       14,
       14,
       14
-    ],
-    "mean_abs_val_fold_feature_offset": 0.078
+    ]
   },
   "signal_denoising_summary": {
     "mean_abs_corr_raw_14_sensors": 0.6573,
-    "mean_abs_corr_trailing_mean_k10": 0.7256,
     "mean_abs_corr_trailing_mean_k30": 0.6865
-  },
-  "row_split_leakage_audit": {
-    "window_k": 10,
-    "mean_lag1_autocorrelation_rolling_means": 0.99568,
-    "min_lag1_autocorrelation_rolling_means": 0.99061,
-    "max_lag1_autocorrelation_rolling_means": 0.99956,
-    "random_row_split_val_rows": 3268,
-    "pct_val_rows_with_adjacent_cycle_in_train": 95.87,
-    "pct_val_rows_with_overlapping_window_in_train": 100.0,
-    "median_feature_l2_dist_adjacent_cycle": 0.3152
   }
 }
