@@ -887,6 +887,10 @@
                 <span class="readout-label">Test failures</span>
                 <span class="readout-val readout-val--fail" id="ro-failures">0 / 20 (0%)</span>
               </div>
+              <div class="readout-item">
+                <span class="readout-label">Mean wasted life</span>
+                <span class="readout-val" id="ro-wasted">18.20 cyc</span>
+              </div>
             </div>
 
             <figure class="report-figure" style="margin:0; border:none; padding:0;">
@@ -901,10 +905,11 @@
                     <div id="fig5b-host"></div>
                   </div>
                 </div>
+                <div class="chart-tooltip" id="exp-tooltip" hidden></div>
               </div>
               <img class="chart-fallback" src="figures/cost_curve_vs_fixed_schedule.png" loading="lazy" alt="Cost curve across failure-to-waste ratios comparing the fixed replacement schedule against sensor-based alarm models and 1,000-engine bootstrap savings.">
               <figcaption>
-                <strong>Figure 5. Interactive maintenance cost explorer on the 20 held-out test engines (amber) and 80 development engines (slate blue).</strong> Left: cost per engine across failure-to-waste ratios using development-locked thresholds. Right: threshold sensitivity comparing development CV against held-out test (any test-minimum marker is shown strictly as an unachievable hindsight reference) and the resulting alarm timing for every test engine.
+                <strong>Figure 5. Interactive maintenance cost explorer on the 20 held-out test engines (amber) and 80 development engines (slate blue).</strong> Left: cost per engine across failure-to-waste ratios with <strong>1,000-engine</strong> bootstrap 95% CI band (using dev-locked thresholds by default, or your manual threshold when adjusted). Right: threshold sensitivity comparing development CV against held-out test (any test-minimum marker is shown strictly as an unachievable hindsight reference) and the resulting alarm timing for every test engine — hover any curve/row for exact values or click a test engine bar to audit it below.
               </figcaption>
             </figure>
           </div>
