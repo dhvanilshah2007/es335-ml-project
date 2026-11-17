@@ -109,7 +109,15 @@ The benchmark dataset (`CMAPSSData/`) uses **NASA C-MAPSS Turbofan Engine Degrad
 
 ---
 
-## 6. AI-Use Disclosure & Citations
+## 6. Team Work Distribution
+
+- **Aarav Malde (`25110003`):** Data verification and engine-grouped splitting (`src/data.py`), EDA and causal trailing-window feature pipeline (`src/eda.py`, `src/features.py`), and  website layout, UX and interaction refinements.(`scripts/export_web_data.py`, `docs/`).
+- **Dhvanil Shah (`25110105`):** 6-rung baseline ladder and 5-fold `GroupKFold` cross-validation (`src/models.py`), cost-policy simulation, bootstrap CIs, leakage/sensitivity experiments (`src/cost_simulation.py`, `src/plotting.py`), and static GitHub Pages site & interactive SVG visualizations 
+- **Joint:** Problem framing, threshold & metric design, error case-study interpretation, walkthrough notebooks (`notebooks/`), and end-to-end reproducibility verification.
+
+---
+
+## 7. AI-Use Disclosure & Citations
 
 - **AI-Use Disclosure:** **Antigravity** (Google DeepMind's agentic AI coding assistant) was used to assist with repository scaffolding, modular pipeline causality unit tests (`scripts/run_features.py`), client-side SVG charts and interactive widgets in `docs/`, and UX/editorial refinement. All data splits, model training runs, cross-validation metrics, cost policy sweeps, bootstrap confidence intervals, and exported JSON artifacts were executed locally and verified directly against the saved CSV and JSON outputs. See [`AI_DISCLOSURE.md`](AI_DISCLOSURE.md) for the full component-by-component disclosure.
 - **Dataset Citation:** A. Saxena, K. Goebel, D. Simon, and N. Eklund, "Damage Propagation Modeling for Aircraft Engine Run-to-Failure Simulation," in *Proceedings of the 1st International Conference on Prognostics and Health Management (PHM08)*, Denver, CO, Oct. 2008.
