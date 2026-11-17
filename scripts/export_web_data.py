@@ -482,6 +482,7 @@ def main() -> int:
             "leaky": _downsample_scatter(scatter_payload["rung5_trends_rf"]["y_true_leaky"], scatter_payload["rung5_trends_rf"]["y_pred_leaky"]),
         },
         "trajectory_example": scatter_payload["trajectory_example"],
+        "trajectories_by_model": scatter_payload["trajectories_by_model"],
     }
 
     report_data = {

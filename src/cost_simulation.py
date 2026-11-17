@@ -787,25 +787,36 @@ def run_row_vs_engine_leakage_experiment(
                 "y_pred_leaky": pred_test_leaky,
             }
 
-    # Capture held-out Engine 21 trajectory under Random Forest (shows interleaved train/test rows)
+    # Capture held-out Engine 21 trajectory across all 3 leakage-comparison models
     sample_uid = int(test_df["unit_id"].unique()[3])
     uid_mask_full = units_full == sample_uid
     in_leaky_train = np.isin(np.flatnonzero(uid_mask_full), tr_row_idx)
     X_uid = X_full.loc[uid_mask_full]
+    cycles_uid = cycles_full[uid_mask_full].tolist()
+    true_rul_uid = y_full[uid_mask_full].tolist()
+    in_leaky_mask_uid = in_leaky_train.tolist()
 
-    scatter_payload["trajectory_example"] = {
-        "unit_id": sample_uid,
-        "model_label": "Random Forest (depth=10)",
-        "cycles": cycles_full[uid_mask_full].tolist(),
-        "true_rul": y_full[uid_mask_full].tolist(),
-        "in_leaky_train_mask": in_leaky_train.tolist(),
-        "pred_proper_unseen_engine": np.clip(
-            fitted_proper_models["rung5_trends_rf"].predict(X_uid), 0.0, float(rul_cap)
-        ).tolist(),
-        "pred_leaky_row_split": np.clip(
-            fitted_leaky_models["rung5_trends_rf"].predict(X_uid), 0.0, float(rul_cap)
-        ).tolist(),
-    }
+    trajectories_by_model: dict[str, Any] = {}
+    for label, mid, _ in models_to_compare:
+        trajectories_by_model[mid] = {
+            "unit_id": sample_uid,
+            "model_id": mid,
+            "model_label": label,
+            "cycles": cycles_uid,
+            "true_rul": true_rul_uid,
+            "in_leaky_train_mask": in_leaky_mask_uid,
+            "pred_proper_unseen_engine": [
+                round(float(x), 3)
+                for x in np.clip(fitted_proper_models[mid].predict(X_uid), 0.0, float(rul_cap))
+            ],
+            "pred_leaky_row_split": [
+                round(float(x), 3)
+                for x in np.clip(fitted_leaky_models[mid].predict(X_uid), 0.0, float(rul_cap))
+            ],
+        }
+
+    scatter_payload["trajectories_by_model"] = trajectories_by_model
+    scatter_payload["trajectory_example"] = trajectories_by_model["rung5_trends_rf"]
     return pd.DataFrame(records), scatter_payload
 
 
