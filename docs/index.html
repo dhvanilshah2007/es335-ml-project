@@ -232,6 +232,7 @@
             <div class="segmented-group" role="group" aria-label="Switch Data figures">
               <button type="button" data-fig-mode="fig-lifetimes" aria-pressed="true">Figure 1: Fleet lifetimes</button>
               <button type="button" data-fig-mode="fig-aligned" aria-pressed="false">Figure 2: Failure-aligned wear &amp; PCA</button>
+              <button type="button" data-fig-mode="all" aria-pressed="false">Show both</button>
             </div>
           </div>
 
@@ -360,7 +361,7 @@
               <aside class="margin-note">
                 <details class="margin-note-box">
                   <summary>How mild is scaler leakage?</summary>
-                  <p>In a controlled check (<a href="https://github.com/dhvanilshah2007/es335-ml-project/blob/main/results/metrics/sensitivity_summary.csv" target="_blank" rel="noopener"><code>sensitivity_summary.csv</code></a>), fitting StandardScaler on all <strong>80</strong> dev engines vs. fold-isolated folds changed Ridge CV RMSE from <code><strong>15.298</strong></code> to <code><strong>15.301</strong></code>—negligible here, unlike row-splitting leakage, yet still prevented by Pipeline discipline.</p>
+                  <p>In a controlled check (<a href="https://github.com/dhvanilshah2007/es335-ml-project/blob/main/results/metrics/sensitivity_summary.csv" target="_blank" rel="noopener"><code>sensitivity_summary.csv</code></a>), Ridge CV RMSE shifted only from <code><strong>15.298</strong></code> (fold-isolated) to <code><strong>15.301</strong></code> (global across all <strong>80</strong> dev engines)—negligible here, unlike row-splitting leakage, yet still prevented by Pipeline discipline.</p>
                 </details>
               </aside>
             </div>
@@ -506,7 +507,7 @@
           <details class="section-details">
             <summary>Details — Hyperparameters and top feature attributions</summary>
             <div class="details-body">
-              <p>Exact estimator configurations from <a href="https://github.com/dhvanilshah2007/es335-ml-project/blob/main/src/models.py" target="_blank" rel="noopener"><code>src/models.py</code></a>: Ridge (<code>alpha=200.0</code> for Rung 4, <code>100.0</code> for Rung 3, <code>1.0</code> for Rung 2), Lasso (<code>alpha=0.5</code>), L2 Logistic Regression (<code>C=0.05</code> for Rung 4, <code>0.1</code> for Rung 3, <code>1.0</code> for Rung 2), Random Forest Regressor (<code>n_estimators=200, max_depth=10, min_samples_leaf=12</code>), HistGradientBoosting Regressor (<code>max_iter=150, lr=0.05, max_depth=5, min_samples_leaf=30, l2=2.0</code>), and HistGradientBoosting Classifier (<code>max_iter=120, lr=0.05, max_depth=4, min_samples_leaf=30, l2=2.0</code>).</p>
+              <p>Training objectives and exact estimator configurations from <a href="https://github.com/dhvanilshah2007/es335-ml-project/blob/main/src/models.py" target="_blank" rel="noopener"><code>src/models.py</code></a>: Ridge (squared error + L2, <code>alpha=200.0</code> for Rung 4, <code>100.0</code> for Rung 3, <code>1.0</code> for Rung 2), Lasso (squared error + L1, <code>alpha=0.5</code>), L2 Logistic Regression (binary log-loss + L2, <code>C=0.05</code> for Rung 4, <code>0.1</code> for Rung 3, <code>1.0</code> for Rung 2), Random Forest Regressor (<code>n_estimators=200, max_depth=10, min_samples_leaf=12</code>) &amp; Classifier (<code>n_estimators=200, max_depth=8, min_samples_leaf=15, max_features='sqrt'</code>), HistGradientBoosting Regressor (<code>max_iter=150, lr=0.05, max_depth=5, min_samples_leaf=30, l2=2.0</code>), and HistGradientBoosting Classifier (<code>max_iter=120, lr=0.05, max_depth=4, min_samples_leaf=30, l2=2.0</code>). Because symmetric training losses ignore asymmetric failure penalties, alarm thresholds (<code>&tau;*</code>, <code>p*</code>) are calibrated separately for policy cost.</p>
               <div class="table-wrap" id="feature-attribution-table-host">
                 <p>Feature attribution table populates from <code>report_data.json</code>; full CSV at <a href="https://github.com/dhvanilshah2007/es335-ml-project/blob/main/results/metrics/cv_feature_attribution.csv" target="_blank" rel="noopener"><code>results/metrics/cv_feature_attribution.csv</code></a>.</p>
               </div>
@@ -925,7 +926,7 @@
               <aside class="margin-note">
                 <details class="margin-note-box">
                   <summary>Locked thresholds vs. hindsight</summary>
-                  <p>Decision cutoffs (<em>K</em>*=<strong>179</strong>, <em>p</em>*=<strong>0.99</strong>, &tau;*=<strong>9.0</strong>) are tuned solely on <strong>80</strong> dev engines. Test hindsight optima shown in Figure 5B are unachievable in deployment.</p>
+                  <p>Decision cutoffs (<em>K</em>*=<strong>179</strong>, <em>p</em>*=<strong>0.99</strong>, &tau;*=<strong>9.0</strong>) and primary models (Rung 4 Logistic, Rung 5 HistGBR) are locked on <strong>80</strong> dev engines before seeing test—preventing post-hoc selection on small-sample test draws like Random Forest (<strong>6.80</strong>) or Instant Logistic (<strong>11.65</strong>). Test hindsight optima in Figure 5B are unachievable in deployment.</p>
                 </details>
               </aside>
               <aside class="margin-note">
@@ -1318,7 +1319,7 @@
         <section id="conclusion" class="report-section reveal-section">
           <h2>Conclusion</h2>
           <p class="takeaway">
-            Strictly trailing sensor trends give reliable early warning of simulated turbofan failure and cut maintenance costs substantially below fixed schedules across cost ratios from <strong>20:1 to 300:1</strong>.
+            Strictly trailing sensor trends give reliable early warning of simulated turbofan failure and cut maintenance costs substantially below fixed schedules across cost ratios from <strong>20:1 to 300:1</strong> (with HistGBR beating fixed schedules down to <strong>10:1</strong> and Logistic breaking even near <strong>10.5:1</strong> on dev CV).
           </p>
 
           <div class="conclusion-grid">
@@ -1428,7 +1429,7 @@ python scripts/export_web_data.py</code></pre>
                 <li><strong>Configuration &amp; seeds:</strong> <a href="https://github.com/dhvanilshah2007/es335-ml-project/blob/main/config.yaml" target="_blank" rel="noopener"><code>config.yaml</code></a> and exact engine split lists in <a href="https://github.com/dhvanilshah2007/es335-ml-project/tree/main/data/splits" target="_blank" rel="noopener"><code>data/splits/</code></a>.</li>
                 <li><strong>Leakage-proof code &amp; notebooks:</strong> Modular Python pipeline in <a href="https://github.com/dhvanilshah2007/es335-ml-project/tree/main/src" target="_blank" rel="noopener"><code>src/</code></a> and walkthrough notebooks in <a href="https://github.com/dhvanilshah2007/es335-ml-project/tree/main/notebooks" target="_blank" rel="noopener"><code>notebooks/</code></a>.</li>
                 <li><strong>Saved metrics &amp; static site export:</strong> CSV tables in <a href="https://github.com/dhvanilshah2007/es335-ml-project/tree/main/results/metrics" target="_blank" rel="noopener"><code>results/metrics/</code></a> and the exact JSON generator <a href="https://github.com/dhvanilshah2007/es335-ml-project/blob/main/scripts/export_web_data.py" target="_blank" rel="noopener"><code>scripts/export_web_data.py</code></a>.</li>
-                <li><strong>Setup, data access &amp; disclosures:</strong> Full instructions and NASA C-MAPSS data access details in <a href="https://github.com/dhvanilshah2007/es335-ml-project/blob/main/README.md" target="_blank" rel="noopener"><code>README.md</code></a>, and full AI-use disclosure in <a href="https://github.com/dhvanilshah2007/es335-ml-project/blob/main/AI_DISCLOSURE.md" target="_blank" rel="noopener"><code>AI_DISCLOSURE.md</code></a>.</li>
+                <li><strong>Data access, setup &amp; disclosures:</strong> Raw C-MAPSS FD001 files are bundled in <code>CMAPSSData/</code> (public NASA Prognostics Data Repository / Kaggle, no credentials required); full setup steps are in <a href="https://github.com/dhvanilshah2007/es335-ml-project/blob/main/README.md" target="_blank" rel="noopener"><code>README.md</code></a>, and AI-use disclosure in <a href="https://github.com/dhvanilshah2007/es335-ml-project/blob/main/AI_DISCLOSURE.md" target="_blank" rel="noopener"><code>AI_DISCLOSURE.md</code></a>.</li>
               </ul>
             </div>
             <div class="prose-side">

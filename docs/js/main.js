@@ -161,165 +161,6 @@ function drawAxes(svg, { xMap, yMap, xMin, xMax, yMin, yMax, xTicks, yTicks, xLa
 }
 
 /* ==========================================================================
-   0. Hero Engine #24 Trace (Single Load Animation)
-   ========================================================================== */
-function renderHeroChart(data) {
-  const hero = data.hero_engine;
-  const host = document.getElementById('hero-chart-host');
-  if (!host || !hero) return;
-
-  const W = 580;
-  const H = 320;
-  const pad = { l: 56, r: 44, t: 28, b: 42 };
-  const svg = createSvg(W, H, 'Held-out Engine 24 sensor trace and alarm cycles');
-
-  const xMap = scaleLinear(1, 185, pad.l, W - pad.r);
-  const ySensor = scaleLinear(-2.0, 2.8, H - pad.b, pad.t);
-  const yProb = scaleLinear(0, 1.0, H - pad.b, pad.t);
-
-  drawAxes(svg, {
-    xMap,
-    yMap: ySensor,
-    xMin: 1,
-    xMax: 185,
-    yMin: -2.0,
-    yMax: 2.8,
-    xTicks: [1, 40, 80, 120, 147, 179],
-    yTicks: [-2, -1, 0, 1, 2],
-    xLabel: 'Operating cycle t',
-    yLabel: 'Sensor 11 (z-score)',
-    yFmt: (v) => v.toFixed(0),
-  });
-
-  // Right axis for alarm probability
-  const rx = W - pad.r;
-  svg.appendChild(el('line', { x1: rx, x2: rx, y1: H - pad.b, y2: pad.t, stroke: COLORS.rule, 'stroke-width': 1 }));
-  [0, 0.5, 1.0].forEach((p) => {
-    const py = yProb(p);
-    svg.appendChild(el('text', { x: rx + 6, y: py + 4, fill: COLORS.model, 'font-size': 11.8 }, p.toFixed(1)));
-  });
-
-  // Shaded w=30 alarm zone (cycles 117..147)
-  const xZone0 = xMap(117);
-  const xZone1 = xMap(147);
-  svg.appendChild(el('rect', {
-    x: xZone0,
-    y: pad.t,
-    width: xZone1 - xZone0,
-    height: H - pad.t - pad.b,
-    fill: '#EBF5F7',
-    opacity: 0.75,
-  }));
-  svg.appendChild(el('text', {
-    x: (xZone0 + xZone1) / 2,
-    y: pad.t - 8,
-    'text-anchor': 'middle',
-    fill: COLORS.model,
-    'font-size': 11.5,
-    'font-weight': 600,
-    stroke: '#F7F8FA',
-    'stroke-width': 3,
-    'paint-order': 'stroke',
-  }, 'w <= 30 zone'));
-
-  // Logistic alarm probability curve (dotted teal)
-  const probPath = buildLinePath(hero.cycles, hero.prob_logreg, xMap, yProb);
-  svg.appendChild(el('path', {
-    d: probPath,
-    fill: 'none',
-    stroke: COLORS.model,
-    'stroke-width': 1.95,
-    'stroke-dasharray': '4,3',
-  }));
-
-  // Sensor 11 trailing mean (primary animated trace)
-  const sPath = buildLinePath(hero.cycles, hero.sensor_11_mean_k30_z, xMap, ySensor);
-  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const traceEl = el('path', {
-    d: sPath,
-    fill: 'none',
-    stroke: COLORS.ink,
-    'stroke-width': 2.6,
-    class: reduceMotion ? 'hero-trace-line' : 'hero-trace-line is-animating',
-  });
-  svg.appendChild(traceEl);
-
-  // Vertical markers: Logistic (130), HistGBR (140), Failure (147), Fixed K* (179)
-  const markers = [
-    { x: 130, color: COLORS.model, dash: 'none', label: 'Logistic @130', yOff: 22, anchor: 'end' },
-    { x: 140, color: COLORS.test, dash: '3,2', label: 'HistGBR @140', yOff: 44, anchor: 'end' },
-    { x: 147, color: COLORS.fail, dash: 'none', label: 'Failure @147', yOff: 18, anchor: 'start' },
-    { x: 179, color: COLORS.fixed, dash: '5,4', label: 'Fixed K*=179', yOff: 56, anchor: 'end', subLabel: '(missed)' },
-  ];
-  markers.forEach((m) => {
-    const px = xMap(m.x);
-    svg.appendChild(el('line', {
-      x1: px,
-      x2: px,
-      y1: pad.t,
-      y2: H - pad.b,
-      stroke: m.color,
-      'stroke-width': m.x === 147 ? 2 : 1.5,
-      'stroke-dasharray': m.dash,
-    }));
-    const textX = m.anchor === 'end' ? px - 4 : px + 4;
-    const textFill = m.color === COLORS.test ? COLORS.testInk : m.color === COLORS.fixed ? COLORS.fixedInk : m.color;
-    svg.appendChild(el('text', {
-      x: textX,
-      y: pad.t + m.yOff,
-      'text-anchor': m.anchor,
-      fill: textFill,
-      'font-size': 11.8,
-      'font-weight': 600,
-      'paint-order': 'stroke',
-      stroke: '#FFFFFF',
-      'stroke-width': 3.2,
-      'stroke-linejoin': 'round',
-    }, m.label));
-    if (m.subLabel) {
-      svg.appendChild(el('text', {
-        x: textX,
-        y: pad.t + m.yOff + 14,
-        'text-anchor': m.anchor,
-        fill: textFill,
-        'font-size': 11.5,
-        'font-weight': 600,
-        'paint-order': 'stroke',
-        stroke: '#FFFFFF',
-        'stroke-width': 3.2,
-        'stroke-linejoin': 'round',
-      }, m.subLabel));
-    }
-  });
-
-  // Direct line labels
-  svg.appendChild(el('text', {
-    x: xMap(10),
-    y: ySensor(0.35),
-    fill: COLORS.ink,
-    'font-size': 12.2,
-    'font-weight': 600,
-    stroke: '#F7F8FA',
-    'stroke-width': 3.5,
-    'paint-order': 'stroke',
-  }, 'Sensor 11 trailing mean (k=30)'));
-  svg.appendChild(el('text', {
-    x: xMap(76),
-    y: yProb(0.14),
-    fill: COLORS.model,
-    'font-size': 12,
-    'font-weight': 600,
-    stroke: '#F7F8FA',
-    'stroke-width': 3.5,
-    'paint-order': 'stroke',
-  }, 'P(alarm)'));
-
-  host.innerHTML = '';
-  host.appendChild(svg);
-  showSvgHost('hero-chart-host', host);
-}
-
-/* ==========================================================================
    Figure 1: Fleet Lifetime Distribution
    ========================================================================== */
 function renderFigure1(data) {
@@ -657,10 +498,7 @@ function initMainExplorer(data) {
 
   const roModelCost = document.getElementById('ro-model-cost');
   const roFixedCost = document.getElementById('ro-fixed-cost');
-  const roSavings = document.getElementById('ro-savings');
   const roFailures = document.getElementById('ro-failures');
-  const roWasted = document.getElementById('ro-wasted');
-  const roBreakeven = document.getElementById('ro-breakeven');
 
   const hostA = document.getElementById('fig5a-host');
   const hostB = document.getElementById('fig5b-host');
@@ -731,29 +569,6 @@ function initMainExplorer(data) {
     threshSlider.value = String(state.threshIdx);
   }
 
-  function computeBreakeven(model, fixedThreshIdx) {
-    const ratios = [];
-    for (let r = 10; r <= 300; r += 5) ratios.push(r);
-    const diffs = ratios.map((r) => {
-      const fix = bestFixedScheduleForRatio(r).testCost;
-      const idx = state.lockedToDev ? bestDevIndexForRatio(model, r) : fixedThreshIdx;
-      const mod = (model.test_failures[idx] * r + model.test_wasted_sum[idx]) / 20;
-      return { r, diff: fix - mod };
-    });
-    if (diffs.every((d) => d.diff >= 0)) return '≤ 10.0 : 1';
-    for (let i = 1; i < diffs.length; i++) {
-      if (diffs[i - 1].diff < 0 && diffs[i].diff >= 0) {
-        const r0 = diffs[i - 1].r;
-        const r1 = diffs[i].r;
-        const d0 = diffs[i - 1].diff;
-        const d1 = diffs[i].diff;
-        const be = r0 + ((0 - d0) * (r1 - r0)) / (d1 - d0);
-        return `${be.toFixed(1)} : 1`;
-      }
-    }
-    return 'Does not beat fixed';
-  }
-
   function renderExplorer() {
     const model = explorer.models[state.modelId];
     const r = state.ratio;
@@ -769,10 +584,8 @@ function initMainExplorer(data) {
     const modelTestCost = (model.test_failures[idx] * r + model.test_wasted_sum[idx]) / 20;
     const modelDevCost = (model.dev_failures[idx] * r + model.dev_wasted_sum[idx]) / 80;
     const testFail = model.test_failures[idx];
-    const testWasted = model.test_wasted_sum[idx] / 20;
     const savings = fixed.testCost - modelTestCost;
     const savingsPct = fixed.testCost > 0 ? (savings / fixed.testCost) * 100 : 0;
-    const beStr = computeBreakeven(model, idx);
 
     ratioVal.textContent = `${r} : 1`;
     threshVal.textContent = model.score_is_rul ? `<= ${thVal.toFixed(1)} cyc` : `>= ${thVal.toFixed(2)}`;
@@ -784,13 +597,7 @@ function initMainExplorer(data) {
 
     roModelCost.textContent = modelTestCost.toFixed(2);
     roFixedCost.textContent = fixed.testCost.toFixed(2);
-    if (roSavings) {
-      roSavings.textContent = `${savings >= 0 ? '+' : ''}${savings.toFixed(2)} (${savingsPct.toFixed(1)}%)`;
-      roSavings.className = `readout-val ${savings >= 0 ? 'readout-val--model' : 'readout-val--fail'}`;
-    }
     roFailures.textContent = `${testFail} / 20 (${(testFail * 5).toFixed(0)}%)`;
-    if (roWasted) roWasted.textContent = `${testWasted.toFixed(2)} cyc`;
-    if (roBreakeven) roBreakeven.textContent = beStr;
 
     const thText = model.score_is_rul ? `RUL &le; <strong>${thVal.toFixed(1)}</strong>` : `<em>p</em> &ge; <strong>${thVal.toFixed(2)}</strong>`;
     const devOptText = model.score_is_rul ? `&tau;*_dev = <strong>${devOptVal.toFixed(1)}</strong>` : `<em>p</em>*_dev = <strong>${devOptVal.toFixed(2)}</strong>`;
@@ -1172,10 +979,10 @@ function initLeakageWidget(data) {
         }
       });
       svg.appendChild(el('text', { x: xA(14), y: yA(14), fill: COLORS.fail, 'font-size': 11.5, 'font-weight': 600 },
-        '● Neighboring cycles leaked into train set'));
+        '● Neighboring cycles leaked into train (Random Forest)'));
     }
     svg.appendChild(el('text', { x: padA.l + 4, y: padA.t - 8, fill: COLORS.ink, 'font-size': 12, 'font-weight': 600 },
-      `A. Engine #${traj.unit_id} trajectory (${mode === 'proper' ? 'held-out' : 'interleaved rows'})`));
+      `A. Engine #${traj.unit_id} Random Forest trace (${mode === 'proper' ? 'held-out' : 'interleaved rows'})`));
 
     // Panel B: Predicted vs True scatter (or Ridge bar comparison)
     const padB = { l: 452, r: 22, t: 28, b: 44 };
@@ -1972,7 +1779,6 @@ async function init() {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
 
-    renderHeroChart(data);
     renderFigure1(data);
     renderFigure2(data);
     renderFigure3(data);

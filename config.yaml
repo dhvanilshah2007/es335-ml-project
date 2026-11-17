@@ -42,7 +42,7 @@ features:
   summary_types: ["rolling_mean", "rolling_std", "slope"]
   include_current_cycle_age: true
   drop_constant_sensors: true
-  constant_std_threshold: 1.0e-4
+  constant_std_threshold: 0.01
 
 cost_simulation:
   c_waste: 1.0
