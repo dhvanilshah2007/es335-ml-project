@@ -482,7 +482,7 @@ function renderFigure4() {
 /* ==========================================================================
    Main Interactive Explorer (Figure 5 — Visual Focal Point)
    ========================================================================== */
-function initMainExplorer(data) {
+function initMainExplorer(data, getErrorBrowserHandle) {
   const explorer = data.interactive_explorer;
   if (!explorer) return;
 
@@ -499,10 +499,12 @@ function initMainExplorer(data) {
   const roModelCost = document.getElementById('ro-model-cost');
   const roFixedCost = document.getElementById('ro-fixed-cost');
   const roFailures = document.getElementById('ro-failures');
+  const roWasted = document.getElementById('ro-wasted');
 
   const hostA = document.getElementById('fig5a-host');
   const hostB = document.getElementById('fig5b-host');
   const parentHost = document.getElementById('fig5-svg-host');
+  const tooltipEl = document.getElementById('exp-tooltip');
 
   const state = {
     modelId: 'rung4_trends_logreg',
@@ -510,6 +512,74 @@ function initMainExplorer(data) {
     threshIdx: 93, // 0.99 for prob models
     lockedToDev: true,
   };
+
+  // Deterministic 1,000-engine bootstrap resamples (n=20, seed=42) for Plot 1 95% CI bands
+  const bootIndices = (() => {
+    let seed = 42;
+    function rand() {
+      seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    const samples = [];
+    for (let b = 0; b < 1000; b++) {
+      const counts = new Uint8Array(20);
+      for (let j = 0; j < 20; j++) {
+        counts[Math.floor(rand() * 20)] += 1;
+      }
+      samples.push(counts);
+    }
+    return samples;
+  })();
+
+  function computeModelBootstrapCI(model, threshIdx, ratio) {
+    const engines = model.test_per_engine_alarms;
+    const perEngCost = engines.map((e) => {
+      const alm = e.alarm_cycles[threshIdx];
+      return alm === null ? ratio : Math.max(0, e.true_lifetime_Te - alm);
+    });
+    const means = new Float64Array(bootIndices.length);
+    for (let b = 0; b < bootIndices.length; b++) {
+      const counts = bootIndices[b];
+      let sum = 0;
+      for (let i = 0; i < 20; i++) {
+        if (counts[i] > 0) sum += counts[i] * perEngCost[i];
+      }
+      means[b] = sum / 20;
+    }
+    means.sort();
+    return {
+      lo: means[Math.floor(0.025 * (means.length - 1))],
+      hi: means[Math.floor(0.975 * (means.length - 1))],
+    };
+  }
+
+  function showTooltip(text, clientX, clientY) {
+    if (!tooltipEl || !parentHost) return;
+    tooltipEl.textContent = text;
+    tooltipEl.hidden = false;
+    const hostRect = parentHost.getBoundingClientRect();
+    const scaleX = parentHost.offsetWidth / (hostRect.width || 1);
+    const scaleY = parentHost.offsetHeight / (hostRect.height || 1);
+    const rawX = (clientX - hostRect.left) * scaleX + 12;
+    const rawY = (clientY - hostRect.top) * scaleY - 12;
+    const tipW = tooltipEl.offsetWidth || 220;
+    const tipH = tooltipEl.offsetHeight || 48;
+    const left = Math.max(6, Math.min(parentHost.offsetWidth - tipW - 6, rawX));
+    const top = Math.max(6, Math.min(parentHost.offsetHeight - tipH - 6, rawY));
+    tooltipEl.style.left = `${left}px`;
+    tooltipEl.style.top = `${top}px`;
+  }
+
+  function showTooltipForElement(text, targetEl) {
+    const r = targetEl.getBoundingClientRect();
+    showTooltip(text, r.left + r.width / 2, r.top);
+  }
+
+  function hideTooltip() {
+    if (tooltipEl) tooltipEl.hidden = true;
+  }
 
   function bestDevIndexForRatio(model, ratio) {
     let bestIdx = 0;
@@ -570,6 +640,7 @@ function initMainExplorer(data) {
   }
 
   function renderExplorer() {
+    hideTooltip();
     const model = explorer.models[state.modelId];
     const r = state.ratio;
     const idx = state.threshIdx;
@@ -584,6 +655,7 @@ function initMainExplorer(data) {
     const modelTestCost = (model.test_failures[idx] * r + model.test_wasted_sum[idx]) / 20;
     const modelDevCost = (model.dev_failures[idx] * r + model.dev_wasted_sum[idx]) / 80;
     const testFail = model.test_failures[idx];
+    const testWasted = model.test_wasted_sum[idx] / 20;
     const savings = fixed.testCost - modelTestCost;
     const savingsPct = fixed.testCost > 0 ? (savings / fixed.testCost) * 100 : 0;
 
@@ -598,6 +670,7 @@ function initMainExplorer(data) {
     roModelCost.textContent = modelTestCost.toFixed(2);
     roFixedCost.textContent = fixed.testCost.toFixed(2);
     roFailures.textContent = `${testFail} / 20 (${(testFail * 5).toFixed(0)}%)`;
+    if (roWasted) roWasted.textContent = `${testWasted.toFixed(2)} cyc`;
 
     const thText = model.score_is_rul ? `RUL &le; <strong>${thVal.toFixed(1)}</strong>` : `<em>p</em> &ge; <strong>${thVal.toFixed(2)}</strong>`;
     const devOptText = model.score_is_rul ? `&tau;*_dev = <strong>${devOptVal.toFixed(1)}</strong>` : `<em>p</em>*_dev = <strong>${devOptVal.toFixed(2)}</strong>`;
@@ -611,20 +684,28 @@ function initMainExplorer(data) {
     // ---- Panel A: Cost Curve across ratios 10..300 ----
     const ratios = [10, 20, 30, 50, 75, 100, 150, 200, 300];
     const fixSeries = [];
+    const fixKSeries = [];
     const modTestSeries = [];
     const modDevSeries = [];
+    const modLoSeries = [];
+    const modHiSeries = [];
     ratios.forEach((rr) => {
-      fixSeries.push(bestFixedScheduleForRatio(rr).testCost);
+      const fx = bestFixedScheduleForRatio(rr);
+      fixSeries.push(fx.testCost);
+      fixKSeries.push(fx.kStar);
       const useIdx = state.lockedToDev ? bestDevIndexForRatio(model, rr) : idx;
       modTestSeries.push((model.test_failures[useIdx] * rr + model.test_wasted_sum[useIdx]) / 20);
       modDevSeries.push((model.dev_failures[useIdx] * rr + model.dev_wasted_sum[useIdx]) / 80);
+      const ci = computeModelBootstrapCI(model, useIdx, rr);
+      modLoSeries.push(ci.lo);
+      modHiSeries.push(ci.hi);
     });
 
-    const maxY = Math.max(90, ...fixSeries, ...modTestSeries) * 1.1;
+    const maxY = Math.max(90, ...fixSeries, ...modTestSeries, ...modHiSeries) * 1.1;
     const WA = 420;
-    const HA = 285;
-    const padA = { l: 56, r: 24, t: 30, b: 42 };
-    const svgA = createSvg(WA, HA, 'Cost curve across failure-to-waste ratios');
+    const HA = 295;
+    const padA = { l: 56, r: 24, t: 36, b: 44 };
+    const svgA = createSvg(WA, HA, 'Cost curve across failure-to-waste ratios with 95% bootstrap confidence band');
     const xA = scaleLinear(10, 300, padA.l, WA - padA.r);
     const yA = scaleLinear(0, maxY, HA - padA.b, padA.t);
 
@@ -641,6 +722,11 @@ function initMainExplorer(data) {
       yLabel: 'Mean cost / engine',
     });
 
+    svgA.appendChild(el('path', {
+      d: buildAreaPath(ratios, modLoSeries, modHiSeries, xA, yA),
+      fill: COLORS.model,
+      opacity: 0.14,
+    }));
     svgA.appendChild(el('path', {
       d: buildLinePath(ratios, fixSeries, xA, yA),
       fill: 'none',
@@ -675,14 +761,25 @@ function initMainExplorer(data) {
     svgA.appendChild(el('circle', { cx: xA(r), cy: yA(modelTestCost), r: 4.5, fill: COLORS.model, stroke: '#FFFFFF', 'stroke-width': 1.4 }));
     svgA.appendChild(el('circle', { cx: xA(r), cy: yA(fixed.testCost), r: 4.2, fill: COLORS.fixed, stroke: '#FFFFFF', 'stroke-width': 1.4 }));
 
-    // Top key strip + collision-clamped direct labels
-    const keyStrip = el('text', { x: padA.l, y: 14, 'font-size': 11.2, 'font-weight': 600 });
-    keyStrip.appendChild(el('tspan', { fill: COLORS.fixedInk }, 'Fixed schedule (test)'));
+    // Top key strip + mode indicator
+    const keyStrip = el('text', { x: padA.l, y: 12, 'font-size': 10.8, 'font-weight': 600 });
+    keyStrip.appendChild(el('tspan', { fill: COLORS.fixedInk }, 'Fixed (test)'));
     keyStrip.appendChild(el('tspan', { fill: COLORS.muted }, ' · '));
-    keyStrip.appendChild(el('tspan', { fill: COLORS.model }, 'Model policy (test)'));
+    keyStrip.appendChild(el('tspan', { fill: COLORS.model }, 'Model (test ±95% CI)'));
     keyStrip.appendChild(el('tspan', { fill: COLORS.muted }, ' · '));
-    keyStrip.appendChild(el('tspan', { fill: COLORS.dev }, 'Model policy (dev CV)'));
+    keyStrip.appendChild(el('tspan', { fill: COLORS.dev }, 'Dev CV'));
     svgA.appendChild(keyStrip);
+
+    const modeBadgeText = state.lockedToDev
+      ? 'Threshold mode: dev-locked optimum per ratio'
+      : `Threshold mode: frozen at manual ${model.score_is_rul ? `tau<=${thVal.toFixed(1)}` : `p>=${thVal.toFixed(2)}`}`;
+    svgA.appendChild(el('text', {
+      x: padA.l,
+      y: 25,
+      fill: state.lockedToDev ? COLORS.muted : COLORS.testInk,
+      'font-size': 10.3,
+      'font-weight': state.lockedToDev ? 500 : 600,
+    }, modeBadgeText));
 
     const yFloor = yA(0) - 8;
     const upperModelY = Math.min(yA(modTestSeries[7]), yA(modDevSeries[7]));
@@ -701,16 +798,51 @@ function initMainExplorer(data) {
     svgA.appendChild(el('text', { x: xA(205), y: yDevLbl, fill: COLORS.dev, 'font-size': 11.2, ...haloAttrs },
       'Model (dev CV)'));
 
+    // Interactive hover/focus/click points along Plot 1 ratios
+    ratios.forEach((rr, i) => {
+      const tipText =
+        `Ratio ${rr}:1 · Model (test): ${modTestSeries[i].toFixed(2)} [95% CI ${modLoSeries[i].toFixed(2)}, ${modHiSeries[i].toFixed(2)}] ` +
+        `| Fixed (K*=${fixKSeries[i]}): ${fixSeries[i].toFixed(2)} | Dev CV: ${modDevSeries[i].toFixed(2)} (click to select)`;
+      const hit = el('circle', {
+        cx: xA(rr),
+        cy: yA(modTestSeries[i]),
+        r: 9,
+        fill: 'transparent',
+        class: 'exp-hit-pt',
+        tabindex: '0',
+        role: 'button',
+        'aria-label': tipText,
+      });
+      hit.addEventListener('mouseenter', (ev) => showTooltip(tipText, ev.clientX, ev.clientY));
+      hit.addEventListener('mousemove', (ev) => showTooltip(tipText, ev.clientX, ev.clientY));
+      hit.addEventListener('mouseleave', hideTooltip);
+      hit.addEventListener('focus', () => showTooltipForElement(tipText, hit));
+      hit.addEventListener('blur', hideTooltip);
+      hit.addEventListener('click', () => {
+        state.ratio = rr;
+        ratioSlider.value = String(rr);
+        if (state.lockedToDev) syncSliderRange();
+        renderExplorer();
+      });
+      hit.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          hit.dispatchEvent(new Event('click'));
+        }
+      });
+      svgA.appendChild(hit);
+    });
+
     hostA.innerHTML = '';
     hostA.appendChild(svgA);
 
     // ---- Panel B: Threshold Curve + 20-Engine Outcome Strip ----
     const WB = 440;
-    const HB = 305;
+    const HB = 315;
     const svgB = createSvg(WB, HB, 'Threshold sensitivity and per-engine alarm outcomes on 20 held-out test engines');
 
     // Top half: Threshold vs Cost (Dev vs Test)
-    const padBTop = { l: 56, r: 18, t: 18, b: 172 };
+    const padBTop = { l: 56, r: 18, t: 18, b: 182 };
     const ths = model.thresholds;
     const thMin = ths[0];
     const thMax = ths[ths.length - 1];
@@ -777,9 +909,68 @@ function initMainExplorer(data) {
       'stroke-linejoin': 'round',
     }, `◆ Test hindsight opt (${testHindsightVal}, unavailable in practice)`));
 
+    // Interactive vertical hover overlay for Plot 2 threshold curve
+    const hoverGuideB = el('line', {
+      x1: xB(thVal),
+      x2: xB(thVal),
+      y1: padBTop.t,
+      y2: HB - padBTop.b,
+      stroke: COLORS.muted,
+      'stroke-width': 1,
+      'stroke-dasharray': '2,2',
+      hidden: 'hidden',
+    });
+    svgB.appendChild(hoverGuideB);
+
+    const hitRectB = el('rect', {
+      x: padBTop.l,
+      y: padBTop.t,
+      width: WB - padBTop.r - padBTop.l,
+      height: HB - padBTop.b - padBTop.t,
+      fill: 'transparent',
+      style: 'cursor: crosshair;',
+    });
+    function getThresholdIdxAtClientX(clientX) {
+      const rect = hitRectB.getBoundingClientRect();
+      const frac = Math.max(0, Math.min(1, (clientX - rect.left) / (rect.width || 1)));
+      const targetVal = thMin + frac * (thMax - thMin);
+      let bestI = 0;
+      let bestDist = Infinity;
+      for (let i = 0; i < ths.length; i++) {
+        const d = Math.abs(ths[i] - targetVal);
+        if (d < bestDist) {
+          bestDist = d;
+          bestI = i;
+        }
+      }
+      return bestI;
+    }
+    hitRectB.addEventListener('mousemove', (ev) => {
+      const hi = getThresholdIdxAtClientX(ev.clientX);
+      const tv = ths[hi];
+      const lbl = model.score_is_rul ? `tau <= ${tv.toFixed(1)}` : `p >= ${tv.toFixed(2)}`;
+      hoverGuideB.setAttribute('x1', xB(tv));
+      hoverGuideB.setAttribute('x2', xB(tv));
+      hoverGuideB.removeAttribute('hidden');
+      const tip = `Threshold ${lbl} · Test: ${testCurve[hi].toFixed(2)} (${model.test_failures[hi]}/20 fail) | Dev CV: ${devCurve[hi].toFixed(2)} (click to apply)`;
+      showTooltip(tip, ev.clientX, ev.clientY);
+    });
+    hitRectB.addEventListener('mouseleave', () => {
+      hoverGuideB.setAttribute('hidden', 'hidden');
+      hideTooltip();
+    });
+    hitRectB.addEventListener('click', (ev) => {
+      state.lockedToDev = false;
+      state.threshIdx = getThresholdIdxAtClientX(ev.clientX);
+      threshSlider.value = String(state.threshIdx);
+      renderExplorer();
+    });
+    svgB.appendChild(hitRectB);
+
     // Bottom half: 20 Held-out Test Engines Timeline
-    const padBBot = { l: 56, r: 18, t: 180, b: 28 };
-    const xEng = scaleLinear(0, 360, padBBot.l, WB - padBBot.r);
+    const padBBot = { l: 56, r: 18, t: 182, b: 36 };
+    const maxEngX = Math.max(365, fixed.kStar + 8);
+    const xEng = scaleLinear(0, maxEngX, padBBot.l, WB - padBBot.r);
     const enginesSorted = model.test_per_engine_alarms
       .map((e) => ({ unit_id: e.unit_id, Te: e.true_lifetime_Te, alarm: e.alarm_cycles[idx] }))
       .sort((a, b) => a.Te - b.Te);
@@ -806,35 +997,81 @@ function initMainExplorer(data) {
         stroke: COLORS.rule,
         'stroke-width': 2.2,
       }));
+      let tipDesc;
       if (eng.alarm === null) {
         const fx = xEng(eng.Te);
         svgB.appendChild(el('polygon', {
           points: `${fx},${cy - 3.2} ${fx + 3.2},${cy} ${fx},${cy + 3.2} ${fx - 3.2},${cy}`,
           fill: COLORS.fail,
         }));
+        tipDesc = `Engine #${eng.unit_id} (lifetime ${eng.Te} cyc) · FAILED (no alarm; cost ${r}) · Click to audit`;
       } else {
         const ax = xEng(eng.alarm);
         const wasted = eng.Te - eng.alarm;
         if (wasted > 30) {
           svgB.appendChild(el('rect', { x: ax - 2.5, y: cy - 2.5, width: 5, height: 5, fill: COLORS.test }));
+          tipDesc = `Engine #${eng.unit_id} (lifetime ${eng.Te} cyc) · Early alarm @${eng.alarm} (${wasted} cyc wasted) · Click to audit`;
         } else {
           svgB.appendChild(el('circle', { cx: ax, cy, r: 2.7, fill: COLORS.model }));
+          tipDesc = `Engine #${eng.unit_id} (lifetime ${eng.Te} cyc) · Timely alarm @${eng.alarm} (${wasted} cyc wasted) · Click to audit`;
         }
       }
+
+      const rowHit = el('rect', {
+        x: padBBot.l,
+        y: padBBot.t + rowIdx * rowH,
+        width: WB - padBBot.r - padBBot.l,
+        height: rowH,
+        class: 'exp-hit-row',
+        tabindex: '0',
+        role: 'button',
+        'aria-label': tipDesc,
+      });
+      rowHit.addEventListener('mouseenter', (ev) => showTooltip(tipDesc, ev.clientX, ev.clientY));
+      rowHit.addEventListener('mousemove', (ev) => showTooltip(tipDesc, ev.clientX, ev.clientY));
+      rowHit.addEventListener('mouseleave', hideTooltip);
+      rowHit.addEventListener('focus', () => showTooltipForElement(tipDesc, rowHit));
+      rowHit.addEventListener('blur', hideTooltip);
+      rowHit.addEventListener('click', () => {
+        const errHandle = typeof getErrorBrowserHandle === 'function' ? getErrorBrowserHandle() : null;
+        if (errHandle) errHandle.jumpToEngine(eng.unit_id);
+        const errWidget = document.getElementById('error-browser-widget');
+        if (errWidget) errWidget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      rowHit.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          rowHit.dispatchEvent(new Event('click'));
+        }
+      });
+      svgB.appendChild(rowHit);
     });
 
-    [0, 100, 179, 250, 341].forEach((tk) => {
+    // Dynamic non-colliding X ticks for Plot 3 including live fixed.kStar
+    const baseTicks = [0, 100, 200, 300, 360].filter((tk) => Math.abs(tk - fixed.kStar) >= 34 && tk <= maxEngX);
+    const engTicks = [...baseTicks, fixed.kStar].sort((a, b) => a - b);
+    engTicks.forEach((tk) => {
+      const isK = tk === fixed.kStar;
       svgB.appendChild(el('text', {
         x: xEng(tk),
-        y: HB - 11,
-        'text-anchor': 'middle',
-        fill: tk === 179 ? COLORS.fixedInk : COLORS.muted,
-        'font-size': 11.2,
-      }, String(tk)));
+        y: HB - 19,
+        'text-anchor': isK && tk > 335 ? 'end' : 'middle',
+        fill: isK ? COLORS.fixedInk : COLORS.muted,
+        'font-size': 10.8,
+        'font-weight': isK ? 700 : 400,
+      }, isK ? `K*=${tk}` : String(tk)));
     });
+    svgB.appendChild(el('text', {
+      x: (padBBot.l + (WB - padBBot.r)) / 2,
+      y: HB - 4,
+      'text-anchor': 'middle',
+      fill: COLORS.ink,
+      'font-size': 11.5,
+      'font-weight': 600,
+    }, 'Operating cycle (20 held-out test engines)'));
 
     const stripLegend = el('text', { x: padBBot.l, y: padBBot.t - 6, fill: COLORS.ink, 'font-size': 11.2, 'font-weight': 600 });
-    stripLegend.appendChild(el('tspan', { fill: COLORS.ink }, '20 Held-out test lifetimes: '));
+    stripLegend.appendChild(el('tspan', { fill: COLORS.ink }, '20 Test lifetimes: '));
     stripLegend.appendChild(el('tspan', { fill: COLORS.model }, '● timely (≤30c)  '));
     stripLegend.appendChild(el('tspan', { fill: COLORS.testInk }, '■ early (>30c)  '));
     stripLegend.appendChild(el('tspan', { fill: COLORS.fail }, '◆ failed'));
@@ -917,7 +1154,9 @@ function initLeakageWidget(data) {
     btnLeaky.setAttribute('aria-pressed', String(mode === 'leaky'));
 
     const row = leak.summary.find((r) => r.model_id === modelId);
-    const traj = leak.scatter_and_trajectory.trajectory_example;
+    const traj = (leak.scatter_and_trajectory.trajectories_by_model && leak.scatter_and_trajectory.trajectories_by_model[modelId])
+      || leak.scatter_and_trajectory.trajectory_example;
+    const trajShortLbl = (traj.model_label || row.model_label).replace('HistGradientBoosting', 'HistGBR');
 
     if (mode === 'proper') {
       takeawayEl.innerHTML =
@@ -964,7 +1203,7 @@ function initLeakageWidget(data) {
         'stroke-width': 2.0,
       }));
       svg.appendChild(el('text', { x: xA(20), y: yA(15), fill: COLORS.model, 'font-size': 11.5, 'font-weight': 600 },
-        'Proper unseen-engine prediction (Random Forest)'));
+        `Proper unseen-engine (${trajShortLbl})`));
     } else {
       svg.appendChild(el('path', {
         d: buildLinePath(traj.cycles, traj.pred_leaky_row_split, xA, yA),
@@ -979,10 +1218,10 @@ function initLeakageWidget(data) {
         }
       });
       svg.appendChild(el('text', { x: xA(14), y: yA(14), fill: COLORS.fail, 'font-size': 11.5, 'font-weight': 600 },
-        '● Neighboring cycles leaked into train (Random Forest)'));
+        `● Leaked neighbor cycles (${trajShortLbl})`));
     }
     svg.appendChild(el('text', { x: padA.l + 4, y: padA.t - 8, fill: COLORS.ink, 'font-size': 12, 'font-weight': 600 },
-      `A. Engine #${traj.unit_id} Random Forest trace (${mode === 'proper' ? 'held-out' : 'interleaved rows'})`));
+      `A. Engine #${traj.unit_id} ${trajShortLbl} (${mode === 'proper' ? 'held-out' : 'interleaved rows'})`));
 
     // Panel B: Predicted vs True scatter (or Ridge bar comparison)
     const padB = { l: 452, r: 22, t: 28, b: 44 };
@@ -1035,8 +1274,8 @@ function initLeakageWidget(data) {
         }));
       }
       const rmseVal = mode === 'proper' ? row.proper_heldout_engines_test_rmse : row.leaky_random_row_split_test_rmse;
-      const shortLbl = row.model_label.replace('HistGradientBoostingRegressor', 'HistGBR');
-      svg.appendChild(el('text', { x: padB.l + 4, y: padB.t - 8, fill: COLORS.ink, 'font-size': 12, 'font-weight': 600 },
+      const shortLbl = row.model_label.replace('HistGradientBoosting', 'HistGBR');
+      svg.appendChild(el('text', { x: padB.l + 4, y: padB.t - 8, fill: COLORS.ink, 'font-size': 11.6, 'font-weight': 600 },
         `B. ${shortLbl} (${mode}, RMSE = ${rmseVal})`));
     }
 
@@ -1419,6 +1658,14 @@ function initErrorBrowser(data, explorerHandle) {
 
   renderCase();
   showSvgHost('fig9-svg-host', host);
+
+  return {
+    jumpToEngine(unitId) {
+      if (!errData.per_engine_error_audit.some((r) => r.unit_id === unitId)) return;
+      activeUnitId = unitId;
+      renderCase();
+    },
+  };
 }
 
 /* ==========================================================================
@@ -1783,11 +2030,12 @@ async function init() {
     renderFigure2(data);
     renderFigure3(data);
     renderFigure4();
-    const explorerHandle = initMainExplorer(data);
+    let errorBrowserHandle = null;
+    const explorerHandle = initMainExplorer(data, () => errorBrowserHandle);
     initLeakageWidget(data);
     renderFigure7(data);
     renderFigure8(data);
-    initErrorBrowser(data, explorerHandle);
+    errorBrowserHandle = initErrorBrowser(data, explorerHandle);
     populateDetailsTables(data);
   } catch (err) {
     // Static fallback images and static HTML tables remain visible if JSON fails to load
